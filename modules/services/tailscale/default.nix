@@ -173,7 +173,10 @@ in
 
     finit.services.tailscaled = {
       description = "tailscaled";
-      conditions = "service/syslogd/ready";
+      conditions = [
+        "service/syslogd/ready"
+        "net/route/default"
+      ];
       command = "${cfg.package}/bin/tailscaled " + lib.escapeShellArgs daemonFlags;
       post = "";
       path = [
