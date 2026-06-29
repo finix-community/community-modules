@@ -1,9 +1,9 @@
 {
   lib,
-	pkgs,
+  pkgs,
   stdenv,
   fetchFromGitHub,
-	graphicalMonitor ? true,
+  graphicalMonitor ? true,
 }:
 
 stdenv.mkDerivation {
@@ -18,25 +18,28 @@ stdenv.mkDerivation {
   };
 
   nativeBuildInputs = with pkgs; [
-		pkg-config 
-		scdoc 
-		meson 
-		ninja
-		pam
-	];
+    pkg-config
+    scdoc
+    meson
+    ninja
+    pam
+  ];
 
-	buildInputs = with pkgs; [
-		dinit
-	];
+  buildInputs = with pkgs; [
+    dinit
+  ];
 
-	mesonFlags = [
-		"-Ddefault_backend=dinit"
-		"-Ddinit=enabled"
-		"-Dstatedir=/var/lib/turnstiled"
-		"-Dpam_moddir=./pam"
-	];
+  mesonFlags = [
+    "-Ddefault_backend=dinit"
+    "-Ddinit=enabled"
+    "-Dstatedir=/var/lib/turnstiled"
+    "-Dpam_moddir=./pam"
+  ];
 
-	patches = [ ./patch.diff ] ++ lib.lists.optional (!graphicalMonitor) (./remove_graphical_monitor.diff);
+  patches = [
+    ./patch.diff
+  ]
+  ++ lib.lists.optional (!graphicalMonitor) (./remove_graphical_monitor.diff);
 
   doInstallCheck = false;
 
