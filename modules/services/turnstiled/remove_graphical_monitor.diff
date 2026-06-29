@@ -1,0 +1,38 @@
+diff --git a/backend/dinit b/backend/dinit
+index 7bacaac..27ee9b7 100644
+--- a/backend/dinit
++++ b/backend/dinit
+@@ -121,8 +121,6 @@ type = internal
+ depends-on = system
+ waits-for.d = ${boot_dir}
+ depends-on = login.target
+-depends-ms = graphical.monitor
+-depends-ms = graphical.target
+ EOF
+ 
+ # this must also succeed
+@@ -131,24 +129,9 @@ type = internal
+ waits-for.d = ${system_boot_dir}
+ EOF
+ 
+-# monitor service to watch for environment changes
+-cat << EOF > "${DINIT_DIR}/graphical.monitor"
+-type = process
+-depends-on = login.target
+-options = pass-cs-fd
+-command = /run/current-system/sw/bin/dinit-monitor -E -c "$0 graphical-notify" WAYLAND_DISPLAY DISPLAY
+-EOF
+-
+ # this is needed for login to proceed
+ cat << EOF > "${DINIT_DIR}/login.target"
+ type = internal
+ EOF
+ 
+-# this is not necessary to have started for login to proceed
+-cat << EOF > "${DINIT_DIR}/graphical.target"
+-type = triggered
+-depends-on = graphical.monitor
+-depends-on = login.target
+-EOF
+-
+ exec dinit --user --ready-fd 3 --services-dir "$DINIT_DIR" "$@" 3>"$DINIT_READY_PIPE"

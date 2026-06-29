@@ -1,0 +1,26 @@
+diff --git a/backend/dinit b/backend/dinit
+index 7bacaac..065d14a 100644
+--- a/backend/dinit
++++ b/backend/dinit
+@@ -136,7 +136,7 @@ cat << EOF > "${DINIT_DIR}/graphical.monitor"
+ type = process
+ depends-on = login.target
+ options = pass-cs-fd
+-command = /usr/bin/dinit-monitor -E -c "$0 graphical-notify" WAYLAND_DISPLAY DISPLAY
++command = /run/current-system/sw/bin/dinit-monitor -E -c "$0 graphical-notify" WAYLAND_DISPLAY DISPLAY
+ EOF
+ 
+ # this is needed for login to proceed
+diff --git a/meson.build b/meson.build
+index aa07c9c..fdf89fa 100644
+--- a/meson.build
++++ b/meson.build
+@@ -28,7 +28,7 @@ have_runit = get_option('runit').enabled()
+ conf_data = configuration_data()
+ conf_data.set_quoted('RUN_PATH', get_option('rundir'))
+ conf_data.set_quoted('CONF_PATH', join_paths(
+-    get_option('prefix'), get_option('sysconfdir'), 'turnstile'
++    '/etc/', 'turnstile'
+ ))
+ conf_data.set10('MANAGE_RUNDIR', get_option('manage_rundir'))
+ 
