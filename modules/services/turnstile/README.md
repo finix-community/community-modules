@@ -1,4 +1,4 @@
-# Turnstiled
+# Turnstile
 
 An experimental module for
 [turnstile](https://github.com/chimera-linux/turnstile).

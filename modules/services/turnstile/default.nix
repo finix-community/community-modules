@@ -5,12 +5,12 @@
   ...
 }:
 let
-  cfg = config.services.turnstiled;
+  cfg = config.services.turnstile;
 
   package = pkgs.callPackage ./package.nix { graphicalMonitor = cfg.dinit.enableGraphicalMonitor; };
 in
 {
-  options.services.turnstiled = {
+  options.services.turnstile = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -52,7 +52,7 @@ in
                   "no"
                 ];
                 default = "no";
-                description = "Whether or not to enable debug output in turnstiled";
+                description = "Whether or not to enable debug output in turnstile";
               };
               backend = mkOption {
                 type = enum [
@@ -81,7 +81,7 @@ in
               rundir_path = mkOption {
                 type = str;
                 default = "/run/user/%u";
-                description = "Where the rundir is for the user. See [turnstiled](${cfg.package.meta.homepage}) documentation for available options";
+                description = "Where the rundir is for the user. See [turnstile](${cfg.package.meta.homepage}) documentation for available options";
               };
               manage_rundir = mkOption {
                 type = enum [
@@ -89,7 +89,7 @@ in
                   "no"
                 ];
                 default = "no";
-                description = "Whether or not `turnstiled` should manage the runtime directory";
+                description = "Whether or not `turnstile` should manage the runtime directory";
 
               };
               export_dbus_address = mkOption {
@@ -111,7 +111,7 @@ in
                   "no"
                 ];
                 default = "no";
-                description = "Whether or not `turnstiled` acts for the root user.";
+                description = "Whether or not `turnstile` acts for the root user.";
               };
             };
           };
@@ -127,25 +127,25 @@ in
               enable = mkOption {
                 type = bool;
                 default = true;
-                description = "Whether or not to use the dinit backend for `turnstiled`.";
+                description = "Whether or not to use the dinit backend for `turnstile`.";
               };
 
               service_dir = mkOption {
                 type = str;
                 default = "$HOME/.config/dinit.d";
-                description = "Users service dir for `turnstiled`'s `dinit` backend. This should include a way to differentiate per user unless all users have identical services.";
+                description = "Users service dir for `turnstile`'s `dinit` backend. This should include a way to differentiate per user unless all users have identical services.";
               };
 
               boot_dir = mkOption {
                 type = str;
                 default = "${cfg.dinit.service_dir}/boot.d";
-                description = "Users service boot dir for `turnstiled`'s `dinit` backend. This should include a way to differentiate per user unless all users have identical services.";
+                description = "Users service boot dir for `turnstile`'s `dinit` backend. This should include a way to differentiate per user unless all users have identical services.";
               };
 
               system_boot_dir = mkOption {
                 type = path;
                 default = "/usr/lib/dinit.d/user/boot.d";
-                description = "Systems service boot dir for `turnstiled`'s `dinit` backend.";
+                description = "Systems service boot dir for `turnstile`'s `dinit` backend.";
               };
 
               enableGraphicalMonitor = mkOption {
