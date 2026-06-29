@@ -7,7 +7,7 @@
 }:
 
 stdenv.mkDerivation {
-  pname = "turnstiled";
+  pname = "turnstile";
   version = "0-unstable-2025-12-15";
 
   src = fetchFromGitHub {
