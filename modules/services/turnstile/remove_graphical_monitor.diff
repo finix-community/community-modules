@@ -20,7 +20,7 @@ index 7bacaac..27ee9b7 100644
 -type = process
 -depends-on = login.target
 -options = pass-cs-fd
--command = /run/current-system/sw/bin/dinit-monitor -E -c "$0 graphical-notify" WAYLAND_DISPLAY DISPLAY
+-command = /usr/bin/dinit-monitor -E -c "$0 graphical-notify" WAYLAND_DISPLAY DISPLAY
 -EOF
 -
  # this is needed for login to proceed
