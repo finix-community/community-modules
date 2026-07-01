@@ -1,32 +1,50 @@
 {
   lib,
-  pkgs,
   stdenv,
   fetchFromGitHub,
+  pkg-config,
+  scdoc,
+  meson,
+  ninja,
+  pam,
+  dinit,
   graphicalMonitor ? true,
 }:
 
-stdenv.mkDerivation {
+stdenv.mkDerivation (finalAttrs: {
   pname = "turnstile";
-  version = "0-unstable-2025-12-15";
+  version = "v0.1.11";
 
   src = fetchFromGitHub {
     owner = "chimera-linux";
     repo = "turnstile";
-    rev = "e3413dad386bf72048646f9f9ffd3a8d60e10eb0";
-    sha256 = "sha256-TH0zLYKgDup+byBxr68R3DWt1/+BFJIkXWSuqSHAEOE=";
+    rev = "${finalAttrs.version}";
+    sha256 = "sha256-94J+w0RHxzw7wS70LcpEzMvgevAqAwl0EtiANUmdRYU=";
   };
 
-  nativeBuildInputs = with pkgs; [
+  buildInputs = [
     pkg-config
     scdoc
     meson
     ninja
     pam
+    dinit
   ];
 
-  buildInputs = with pkgs; [
-    dinit
+  # nativeBuildInputs = [
+  #   dinit
+  # ];
+
+  postPatch = lib.strings.concatStrings [
+    (lib.strings.optionalString graphicalMonitor ''
+      substituteInPlace backend/dinit \
+        --replace-fail '/usr/bin/dinit-monitor' '${lib.getExe' dinit "dinit-monitor"}'
+    '')
+
+    ''
+      substituteInPlace meson.build \
+        --replace-fail "get_option('prefix'), get_option('sysconfdir'), 'turnstile'" "'/etc', 'turnstile'"
+    ''
   ];
 
   mesonFlags = [
@@ -36,12 +54,7 @@ stdenv.mkDerivation {
     "-Dpam_moddir=./pam"
   ];
 
-  patches = [
-    ./patch.diff
-  ]
-  ++ lib.lists.optional (!graphicalMonitor) (./remove_graphical_monitor.diff);
-
-  doInstallCheck = false;
+  patches = lib.lists.optional (!graphicalMonitor) (./remove_graphical_monitor.diff);
 
   meta = with lib; {
     homepage = "https://github.com/chimera-linux/turnstile";
@@ -52,4 +65,4 @@ stdenv.mkDerivation {
     mainProgram = "turnstiled";
   };
 
-}
+})
