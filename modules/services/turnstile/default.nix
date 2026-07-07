@@ -164,16 +164,6 @@ in
         services_dir3="/usr/local/lib/dinit.d/user"
         services_dir4="/usr/lib/dinit.d/user"
         			'';
-
-      "pam.d/turnstiled".text = ''
-        auth		sufficient	pam_rootok.so
-        session		optional	pam_keyinit.so force revoke
-        session		optional	pam_umask.so usergroups umask=022
-        -session	optional	pam_elogind.so
-        session		required  pam_env.so conffile=/etc/security/pam_env.conf readenv=1 # env (order 10100)
-        session		required	${cfg.package}/pam/pam_turnstile.so turnstiled
-        session		required	pam_limits.so
-      '';
     };
 
     security.pam.services = lib.mkMerge [
