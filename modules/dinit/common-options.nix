@@ -114,6 +114,16 @@
       '';
     };
 
+    prepared-by = lib.mkOption {
+      type = with lib.types; listOf str;
+      default = [ ];
+      description = ''
+        This service is prepared by the named service. Forces this service to restart when the named service does.
+
+        See [upstream documentation](https://davmac.org/projects/dinit/man-pages-html/dinit-service.5.html#SERVICE_PROPERTIES) for additional details.
+      '';
+    };
+
     waits-for = lib.mkOption {
       type = with lib.types; listOf str;
       default = [ ];
