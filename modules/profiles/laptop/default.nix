@@ -52,6 +52,7 @@ in
 
     hardwareSupport = lib.mkOption {
       type = lib.types.enum [
+        "full"
         "minimal"
         "standard"
       ];
@@ -59,7 +60,8 @@ in
       description = ''
         Determine the level of hardware support and stack desired for this system.
 
-        - `standard` - `udev`, `elogind`, and `NetworkManager`, vs
+        - `full` - `gardendevd`, `elogind`, and `NetworkManager`, vs
+        - `standard` - `keventd`, `seatd`, and `iwd`
         - `minimal` - `mdevd`, `seatd`, and `iwd`
       '';
     };
@@ -68,17 +70,23 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = config.services.elogind.enable -> config.services.udev.enable;
-        message = "elogind (configured via services.elogind.enable = true) requires the (e)udev device manager; please set services.udev.enable = true;";
+        assertion =
+          config.services.elogind.enable -> config.services.gardendevd.enable || config.services.udev.enable;
+        message = "elogind (configured via services.elogind.enable = true) requires either the gardendevd or (e)udev device manager; please set services.gardendevd.enable = true;";
       }
       {
         assertion =
-          config.services.fwupd.enable -> config.services.udev.enable && config.services.udisks2.enable;
-        message = "fwupd (configured via services.fwupd.enable = true) requires the (e)udev device manager and the udisks2 service; please set services.udev.enable = true; and services.udisks2.enable = true;";
+          config.services.fwupd.enable
+          ->
+            (config.services.gardendevd.enable || config.services.udev.enable)
+            && config.services.udisks2.enable;
+        message = "fwupd (configured via services.fwupd.enable = true) requires either the gardendevd or (e)udev device manager and the udisks2 service; please set services.gardendevd.enable = true; and services.udisks2.enable = true;";
       }
       {
-        assertion = config.services.networkmanager.enable -> config.services.udev.enable;
-        message = "NetworkManager (configured via services.networkmanager.enable = true) requires the (e)udev device manager; please set services.udev.enable = true;";
+        assertion =
+          config.services.networkmanager.enable
+          -> config.services.gardendevd.enable || config.services.udev.enable;
+        message = "NetworkManager (configured via services.networkmanager.enable = true) requires either the gardendevd or (e)udev device manager; please set services.gardendevd.enable = true;";
       }
     ];
 
@@ -124,19 +132,21 @@ in
     programs.zzz.enable = lib.mkDefault true;
 
     # choose *one* device manager
-    services.udev.enable = cfg.hardwareSupport == "standard";
-    services.mdevd.enable = cfg.hardwareSupport == "minimal";
-
-    # required for graphical environments
-    services.mdevd.nlgroups = 4;
+    services.mdevd.enable = lib.mkIf (cfg.hardwareSupport == "minimal") (lib.mkDefault true);
+    services.keventd.enable = lib.mkIf (cfg.hardwareSupport == "standard") (lib.mkDefault true);
+    services.gardendevd.enable = lib.mkIf (cfg.hardwareSupport == "full") (lib.mkDefault true);
 
     # choose *one* seat manager
-    services.elogind.enable = config.services.udev.enable;
-    services.seatd.enable = config.services.mdevd.enable;
+    services.seatd.enable = lib.mkIf (
+      cfg.hardwareSupport == "minimal" || cfg.hardwareSupport == "standard"
+    ) (lib.mkDefault true);
+    services.elogind.enable = lib.mkIf (cfg.hardwareSupport == "full") (lib.mkDefault true);
 
     # choose *one* wifi manager
-    services.iwd.enable = config.services.mdevd.enable;
-    services.networkmanager.enable = config.services.udev.enable;
+    services.iwd.enable = lib.mkIf (
+      cfg.hardwareSupport == "minimal" || cfg.hardwareSupport == "standard"
+    ) (lib.mkDefault true);
+    services.networkmanager.enable = lib.mkIf (cfg.hardwareSupport == "full") (lib.mkDefault true);
 
     services.atd.enable = true;
     services.bluetooth.enable = lib.mkDefault true;
@@ -148,7 +158,10 @@ in
       "3600"
     ];
     services.fcron.enable = lib.mkDefault true;
-    services.fwupd.enable = lib.mkDefault config.services.udev.enable;
+    services.fwupd.enable = lib.mkIf (cfg.hardwareSupport == "full") (lib.mkDefault true);
+    services.getty.package = pkgs.util-linuxMinimal // {
+      meta.mainProgram = "agetty";
+    };
     services.nftables.enable = lib.mkDefault true;
     services.nix-daemon.enable = true;
     services.polkit.enable = true;
@@ -161,7 +174,7 @@ in
       config.services.seatd.group
     ];
     services.sysklogd.enable = true;
-    services.udisks2.enable = lib.mkDefault config.services.udev.enable;
+    services.udisks2.enable = lib.mkIf (cfg.hardwareSupport == "full") (lib.mkDefault true);
     services.upower.enable = lib.mkDefault true;
 
     # https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes#Simple_IP/IPv6_Firewall
