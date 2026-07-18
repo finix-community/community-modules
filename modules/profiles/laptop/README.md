@@ -43,6 +43,10 @@ A minimal `configuration.nix` to put alongside the flake snippet above:
     ./hardware-configuration.nix
   ];
 
+  profiles.laptop.enable = true;
+  profiles.laptop.hardwareSupport = "minimal";
+  profiles.laptop.user = "lennart";
+
   networking.hostName = "mylaptop";
 
   programs.niri.enable = true;
@@ -53,12 +57,6 @@ A minimal `configuration.nix` to put alongside the flake snippet above:
   ];
 
   users.users.lennart = {
-    isNormalUser = true;
-    extraGroups =
-      [ "wheel" "video" "audio" ]
-      ++ lib.optionals config.services.networkmanager.enable [ "networkmanager" ]
-      ++ lib.optionals config.services.seatd.enable [ config.services.seatd.group ];
-
     # finix has no plaintext passwords; `password` is the hashed form which you can generate with `mkpasswd`
     password = "$6$...";
   };

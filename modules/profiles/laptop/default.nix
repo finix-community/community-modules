@@ -65,6 +65,14 @@ in
         - `minimal` - `mdevd`, `seatd`, and `iwd`
       '';
     };
+
+    user = lib.mkOption {
+      type = with lib.types; nullOr str;
+      default = null;
+      description = ''
+        The user to treat as the primary user for this system and configure necussary access for.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -226,6 +234,21 @@ in
     xdg.icons.enable = lib.mkDefault true;
     xdg.mime.enable = lib.mkDefault true;
     xdg.portal.enable = lib.mkDefault true;
+
+    users.users = lib.optionalAttrs (cfg.user != null) {
+      ${cfg.user} = {
+        isNormalUser = lib.mkDefault true;
+        extraGroups =
+          lib.optionals config.programs.sudo.enable [ "wheel" ]
+          ++ lib.optionals config.services.seatd.enable [
+            "audio"
+            "input"
+            "video"
+
+            config.services.seatd.group
+          ];
+      };
+    };
 
     providers.privileges.rules =
       lib.optionals config.services.seatd.enable [
