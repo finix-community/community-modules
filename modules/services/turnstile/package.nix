@@ -7,8 +7,9 @@
   meson,
   ninja,
   pam,
+  dinitSupport ? true,
   dinit,
-  graphicalMonitor ? true,
+  runitSupport ? true,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
@@ -22,39 +23,32 @@ stdenv.mkDerivation (finalAttrs: {
     sha256 = "sha256-94J+w0RHxzw7wS70LcpEzMvgevAqAwl0EtiANUmdRYU=";
   };
 
-  buildInputs = [
+  nativeBuildInputs = [
     pkg-config
     scdoc
     meson
     ninja
+  ];
+
+  buildInputs = [
     pam
-    dinit
   ];
 
-  # nativeBuildInputs = [
-  #   dinit
-  # ];
-
-  postPatch = lib.strings.concatStrings [
-    (lib.strings.optionalString graphicalMonitor ''
-      substituteInPlace backend/dinit \
-        --replace-fail '/usr/bin/dinit-monitor' '${lib.getExe' dinit "dinit-monitor"}'
-    '')
-
-    ''
-      substituteInPlace meson.build \
-        --replace-fail "get_option('prefix'), get_option('sysconfdir'), 'turnstile'" "'/etc', 'turnstile'"
-    ''
-  ];
+  postPatch = ''
+    substituteInPlace meson.build \
+      --replace-fail "get_option('prefix'), get_option('sysconfdir'), 'turnstile'" "'/etc', 'turnstile'"
+  ''
+  + lib.optionalString dinitSupport ''
+    substituteInPlace backend/dinit \
+      --replace-fail '/usr/bin/dinit-monitor' '${lib.getExe' dinit "dinit-monitor"}'
+  '';
 
   mesonFlags = [
-    "-Ddefault_backend=dinit"
-    "-Ddinit=enabled"
-    "-Dstatedir=/var/lib/turnstiled"
-    "-Dpam_moddir=./pam"
+    "-Dlocalstatedir=/var"
+    "-Dpam_moddir=${placeholder "out"}/lib/security"
+    (lib.mesonEnable "dinit" dinitSupport)
+    (lib.mesonEnable "runit" runitSupport)
   ];
-
-  patches = lib.lists.optional (!graphicalMonitor) (./remove_graphical_monitor.diff);
 
   meta = with lib; {
     homepage = "https://github.com/chimera-linux/turnstile";
