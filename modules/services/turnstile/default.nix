@@ -19,7 +19,10 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = pkgs.callPackage ./package.nix { };
+      default = pkgs.turnstile {
+        dinitSupprt = cfg.dinit.enable;
+        runitSupport = cfg.runit.enable;
+      };
       description = ''
         The package to use for `turnstile`.
       '';
@@ -125,7 +128,7 @@ in
     dinit = {
       enable = lib.mkOption {
         type = lib.types.bool;
-        default = true;
+        default = false;
         description = ''
           Whether or not to use the dinit backend for `turnstile`.
         '';
@@ -145,9 +148,9 @@ in
           type = with lib.types; either path str;
           default = "\${HOME}/.config/dinit.d/boot.d";
           description = ''
-            # The directory containing service links that must be
-            # started in order for the login to proceed. Can be
-            # empty, in which case nothing is waited for.
+            The directory containing service links that must be
+            started in order for the login to proceed. Can be
+            empty, in which case nothing is waited for.
           '';
         };
 
@@ -155,9 +158,9 @@ in
           type = with lib.types; either path str;
           default = "/etc/dinit.d/user/boot.d";
           description = ''
-            # This is just like boot_dir, but not controlled by the
-            # user. Instead, the system installs links there, and
-            # they are started for all users universally.
+            This is just like boot_dir, but not controlled by the
+            user. Instead, the system installs links there, and
+            they are started for all users universally.
           '';
         };
 
@@ -165,10 +168,55 @@ in
           type = with lib.types; listOf (either path str);
           default = [ "\${HOME}/.config/dinit.d" ];
           description = ''
-            # A directory user service files are read from. Every
-            # additional directory needs to have its number incremented.
-            # The numbering matters (defines the order) and there must be
-            # no gaps (it starts with 1, ends at the last undefined).
+            A directory user service files are read from. Every
+            additional directory needs to have its number incremented.
+            The numbering matters (defines the order) and there must be
+            no gaps (it starts with 1, ends at the last undefined).
+          '';
+        };
+      };
+    };
+
+    runit = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Whether or not to use the runit backend for `turnstile`.
+        '';
+      };
+
+      package = lib.mkOption {
+        type = lib.types.package;
+        default = pkgs.runit;
+        defaultText = lib.literalExpression "pkgs.runit";
+        description = ''
+          # TODO:
+        '';
+      };
+
+      settings = {
+        ready_sv = lib.mkOption {
+          type = with lib.types; str;
+          default = "turnstile-ready";
+          description = ''
+            The name of the service that turnstile will check for login readiness
+          '';
+        };
+
+        services_dir = lib.mkOption {
+          type = with lib.types; either path str;
+          default = "\${HOME}/.config/service";
+          description = ''
+            The directory user service files are read from. Can include a way to differentiate between users, like `$HOME`.
+          '';
+        };
+
+        service_env_dir = lib.mkOption {
+          type = with lib.types; either path str;
+          default = "\${HOME}/.config/service-env";
+          description = ''
+            The environment variable directory user service files can read from. Can include a way to differentiate between users, like `$HOME`.
           '';
         };
       };
@@ -189,10 +237,16 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    services.turnstile.package = pkgs.turnstile {
+      dinitSupprt = cfg.dinit.enable;
+      runitSupport = cfg.runit.enable;
+    };
+
     environment.systemPackages = [
       cfg.package
     ]
-    ++ lib.optionals cfg.dinit.enable [ (lib.lowPrio cfg.dinit.package) ];
+    ++ lib.optionals cfg.dinit.enable [ (lib.lowPrio cfg.dinit.package) ]
+    ++ lib.optionals cfg.runit.enable [ (lib.lowPrio cfg.runit.package) ];
 
     environment.etc = {
       "turnstile/turnstiled.conf".source =
@@ -229,6 +283,19 @@ in
             lib.imap1 (i: v: lib.nameValuePair "services_dir${toString i}" v) cfg.dinit.settings.services_dir
           ))
         );
+    }
+    // lib.optionalAttrs cfg.runit.enable {
+      "turnstile/backend/runit.conf".source =
+        let
+          format = pkgs.formats.keyValue {
+            mkKeyValue = lib.generators.mkKeyValueDefault {
+              mkValueString = v: "\"" + lib.generators.mkValueStringDefault { } v + "\"";
+            } "=";
+          };
+        in
+        format.generate "runit.conf" {
+          inherit (cfg.runit.settings) ready_sv services_dir service_env_dir;
+        };
     };
 
     security.pam.services = {
@@ -260,7 +327,8 @@ in
         cfg.package
         config.programs.coreutils.package
       ]
-      ++ lib.optionals cfg.dinit.enable [ cfg.dinit.package ];
+      ++ lib.optionals cfg.dinit.enable [ cfg.dinit.package ]
+      ++ lib.optionals cfg.runit.enable [ cfg.runit.package ];
     };
   };
 }
