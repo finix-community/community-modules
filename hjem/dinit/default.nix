@@ -6,6 +6,8 @@
 }:
 let
   cfg = config.dinit;
+
+  format = pkgs.formats.keyValue { };
 in
 {
   options.dinit = {
@@ -16,9 +18,15 @@ in
 
     services = lib.mkOption {
       type = lib.types.attrsOf (
-        lib.types.submodule {
-          imports = [ ./options.nix ];
-        }
+        lib.types.submodule (
+          { config, name, ... }: {
+            imports = [ ./options.nix ];
+
+            config.env-file = lib.mkIf (config.environment != { }) (
+              format.generate "${name}.env" config.environment
+            );
+          }
+        )
       );
       default = { };
       description = ''
