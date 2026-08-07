@@ -3,9 +3,11 @@
   lib,
   pkgs,
   ...
-}: let
+}:
+let
   cfg = config.services.yarr;
-in {
+in
+{
   options.services.yarr = {
     enable = lib.mkOption {
       type = lib.types.bool;
@@ -92,7 +94,7 @@ in {
 
     extraArgs = lib.mkOption {
       type = lib.types.listOf lib.types.str;
-      default = [];
+      default = [ ];
       description = ''
         Extra flags passed to `yarr`.
       '';
@@ -100,7 +102,7 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    environment.systemPackages = [cfg.package];
+    environment.systemPackages = [ cfg.package ];
 
     finit.services.yarr = {
       inherit (cfg) user group;
@@ -135,7 +137,7 @@ in {
     };
 
     users.groups = lib.mkIf (cfg.group == "yarr") {
-      yarr = {};
+      yarr = { };
     };
   };
 }
