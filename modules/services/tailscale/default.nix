@@ -2,6 +2,7 @@
   config,
   pkgs,
   lib,
+  options,
   ...
 }:
 let
@@ -169,49 +170,56 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    environment.systemPackages = [ cfg.package ];
+  config = lib.mkIf cfg.enable (
+    lib.mkMerge [
+      {
+        environment.systemPackages = [ cfg.package ];
 
-    boot = {
-      kernelModules = lib.optionals tun [ "tun" ];
-      kernel.sysctl = routingSysctls;
-    };
+        boot = {
+          kernelModules = lib.optionals tun [ "tun" ];
+          kernel.sysctl = routingSysctls;
+        };
 
-    services.dhcpcd.settings.denyinterfaces = lib.optionals tun [ cfg.interfaceName ];
+        finit.tmpfiles.rules = [
+          "d /run/tailscale 0755 root root"
+          "d ${cfg.stateDir} 0700 root root"
+        ];
 
-    finit.tmpfiles.rules = [
-      "d /run/tailscale 0755 root root"
-      "d ${cfg.stateDir} 0700 root root"
-    ];
+        finit.services.tailscaled = {
+          description = "tailscaled";
+          notify = "systemd";
+          conditions = [
+            "service/syslogd/ready"
+            "net/route/default"
+          ];
+          command = "${tailscaledScript}";
+          post = "";
+          path = [
+            (dirOf config.security.wrapperDir)
+            pkgs.procps
+            pkgs.getent
+            pkgs.kmod
+          ]
+          ++ lib.optional config.programs.resolvconf.enable config.programs.resolvconf.package;
+          respawn = true;
+          log = true;
+        };
 
-    finit.services.tailscaled = {
-      description = "tailscaled";
-      notify = "systemd";
-      conditions = [
-        "service/syslogd/ready"
-        "net/route/default"
-      ];
-      command = "${tailscaledScript}";
-      post = "";
-      path = [
-        (dirOf config.security.wrapperDir)
-        pkgs.procps
-        pkgs.getent
-        pkgs.kmod
-      ];
-      respawn = true;
-      log = true;
-    };
+        finit.tasks.tailscale-up = lib.mkIf (cfg.authKeyFile != null || cfg.extraUpFlags != [ ]) {
+          description = "tailscale up";
 
-    finit.tasks.tailscale-up = lib.mkIf (cfg.authKeyFile != null || cfg.extraUpFlags != [ ]) {
-      description = "tailscale up";
+          conditions = [
+            "service/tailscaled/ready"
+          ];
 
-      conditions = [
-        "service/tailscaled/ready"
-      ];
+          command = "${tailscaleUpScript}";
+          log = true;
+        };
+      }
+      (lib.optionalAttrs (options ? services.dhcpcd) {
+        services.dhcpcd.settings.denyinterfaces = lib.optionals tun [ cfg.interfaceName ];
+      })
+    ]
+  );
 
-      command = "${tailscaleUpScript}";
-      log = true;
-    };
-  };
 }

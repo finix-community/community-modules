@@ -271,7 +271,6 @@ in
         cfg.package
       ];
 
-      # https://github.com/finix-community/issues/83
       security.pam.environment = {
         XDG_DATA_DIRS.default = lib.mkBefore (
           map (p: "${p}/share") [

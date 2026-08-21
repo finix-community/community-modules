@@ -186,7 +186,7 @@ in
       ''
     );
 
-    services.udev.packages = lib.mkIf (config.services.udev.enable) [ cfg.drivers ];
+    services.udev.packages = lib.mkIf (config.services.udev.enable) cfg.drivers;
 
     environment.systemPackages = [ cfg.package.out ];
 

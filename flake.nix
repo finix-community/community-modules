@@ -28,5 +28,7 @@
       formatter = forSystems (system: (pkgsFor system).nixfmt-tree);
 
       nixosModules = import ./modules;
+
+      hjemModules = import ./hjem;
     };
 }
