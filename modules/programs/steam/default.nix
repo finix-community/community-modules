@@ -10,6 +10,29 @@ let
 
   extraCompatPaths = lib.makeSearchPathOutput "steamcompattool" "" cfg.extraCompatPackages;
 
+  steam-gamescope =
+    let
+      exports = builtins.attrValues (
+        builtins.mapAttrs (n: v: "export ${n}=${v}") cfg.gamescopeSession.env
+      );
+    in
+    pkgs.writeShellScriptBin "steam-gamescope" ''
+      ${builtins.concatStringsSep "\n" exports}
+      gamescope --steam ${toString cfg.gamescopeSession.args} -- steam ${toString cfg.gamescopeSession.steamArgs}
+    '';
+
+  gamescopeSessionFile =
+    (pkgs.writeTextDir "share/wayland-sessions/steam.desktop" ''
+      [Desktop Entry]
+      Name=Steam
+      Comment=A digital distribution platform
+      Exec="${pkgs.dbus}/bin/dbus-run-session -- ${steam-gamescope}/bin/steam-gamescope"
+      Type=Application
+    '').overrideAttrs
+      (_: {
+        passthru.providedSessions = [ "steam" ];
+      });
+
 in
 {
   options.programs.steam = {
@@ -111,6 +134,42 @@ in
       '';
     };
 
+    gamescopeSession = lib.mkOption {
+      description = "Run a GameScope driven Steam session from your display-manager";
+      default = { };
+      type = lib.types.submodule {
+        options = {
+          enable = lib.mkEnableOption "GameScope Session";
+          args = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [ ];
+            description = ''
+              Arguments to be passed to GameScope for the session.
+            '';
+          };
+
+          env = lib.mkOption {
+            type = lib.types.attrsOf lib.types.str;
+            default = { };
+            description = ''
+              Environmental variables to be passed to GameScope for the session.
+            '';
+          };
+
+          steamArgs = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [
+              "-tenfoot"
+              "-pipewire-dmabuf"
+            ];
+            description = ''
+              Arguments to be passed to Steam for the session.
+            '';
+          };
+        };
+      };
+    };
+
     extest.enable = lib.mkEnableOption ''
       Load the extest library into Steam, to translate X11 input events to
       uinput events (e.g. for using Steam Input on Wayland)
@@ -132,11 +191,16 @@ in
     };
 
     programs.steam.extraPackages = cfg.fontPackages;
+    programs.gamescope.enable = lib.mkDefault cfg.gamescopeSession.enable;
+
+    services.dbus.enable = true;
 
     environment.systemPackages = [
+      (lib.hiPrio gamescopeSessionFile)
       cfg.package
       cfg.package.run
     ]
+    ++ lib.optional cfg.gamescopeSession.enable steam-gamescope
     ++ lib.optional cfg.protontricks.enable (
       cfg.protontricks.package.override { inherit extraCompatPaths; }
     );
