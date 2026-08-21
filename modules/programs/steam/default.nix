@@ -78,6 +78,9 @@ in
       '';
     };
 
+    # TODO implement firewall options once #121 is merged
+    # https://github.com/finix-community/finix/pull/121
+
     extraCompatPackages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
       default = [ ];
@@ -117,6 +120,8 @@ in
       enable = lib.mkEnableOption "protontricks, a simple wrapper for running Winetricks commands for Proton-enabled games";
       package = lib.mkPackageOption pkgs "protontricks" { };
     };
+
+    hardware.enable = lib.mkEnableOption "Enable udev rules for Steam hardware such as the Steam Controller, other supported controllers and the HTC Vive. Requires a udev-compatible device manager.";
   };
 
   config = lib.mkIf cfg.enable {
@@ -128,9 +133,6 @@ in
 
     programs.steam.extraPackages = cfg.fontPackages;
 
-    # enable 32bit pipewire support if needed
-    programs.pipewire.alsa.support32Bit = config.programs.pipewire.alsa.enable;
-
     environment.systemPackages = [
       cfg.package
       cfg.package.run
@@ -139,5 +141,9 @@ in
       cfg.protontricks.package.override { inherit extraCompatPaths; }
     );
 
+    services.udev.packages = lib.mkIf cfg.hardware.enable [
+      pkgs.steam-devices-udev-rules
+    ];
+    boot.kernelModules = lib.mkIf cfg.hardware.enable [ "uinput" ];
   };
 }
