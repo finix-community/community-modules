@@ -35,6 +35,9 @@ let
 
 in
 {
+  # FIXME we do not like relative paths...
+  imports = [ ../gamescope ];
+  
   options.programs.steam = {
     enable = lib.mkEnableOption "steam";
 
