@@ -26,9 +26,24 @@ let
   };
 
   allCmds = lib.flatten (lib.mapAttrsToList (mkFinitInitrdMountCmds ids) cfg.preserveAt);
+
+  # a preserved path that cannot be set up is a bad reason to refuse to boot, so
+  # every entry is guarded (see `guard` in lib.nix) and this script always exits
+  # 0. the cost is that failures are only ever reported, never enforced - hence
+  # writing to the console directly, so the warning is visible even though finit
+  # is told the task succeeded.
   script = pkgs.writeScript "preservation-initrd" ''
     #!/bin/sh
+    preservation_warn() {
+      msg="preservation: failed to set up $1, continuing without it"
+      echo "$msg" >&2
+      if [ -w /dev/console ]; then echo "$msg" > /dev/console; fi
+      return 0
+    }
+
     ${lib.concatStringsSep "\n" allCmds}
+
+    exit 0
   '';
 
   # finix's initrd mounts every neededForBoot filesystem in a single

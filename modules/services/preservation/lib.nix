@@ -152,7 +152,33 @@ rec {
 
       prefix = "/sysroot";
 
-      par = cmds: "( ${lib.concatStringsSep "; " cmds} ) &";
+      # runs the commands for one entry as a group.
+      #
+      # the commands are chained with `&&` so the group stops at the first
+      # failure, and a path that could not be prepared is never mounted over
+      # half-done - when the persistent copy turns out to be the wrong type, the
+      # volatile mountpoint is left absent rather than present and empty, which
+      # would silently swallow everything written to it.
+      #
+      # `set -e` deliberately is not used here: POSIX suspends errexit for any
+      # command that is the left operand of `||`, and both bash and ash extend
+      # that suspension to a `set -e` executed inside the compound command. the
+      # group below is exactly such an operand, so errexit would be a no-op.
+      #
+      # `|| preservation_warn` then contains the failure. preserving state is not
+      # worth refusing to boot over, so a broken entry degrades to a warning on
+      # the console while every other entry is still set up. the warn helper is
+      # defined in the script preamble in `default.nix`.
+      guard =
+        {
+          background ? true,
+        }:
+        label: cmds:
+        "( ${lib.concatStringsSep " && " cmds} ) || preservation_warn ${lib.escapeShellArg label}"
+        + lib.optionalString background " &";
+
+      par = guard { };
+      serial = guard { background = false; };
 
       # apply ownership and permissions to a path this script has just created
       mkOwn =
@@ -184,28 +210,28 @@ rec {
 
       # home directories are created up front, sequentially, so that the parallel
       # per-entry commands below never race to create them.
-      homeCmds = lib.concatLists (
-        lib.mapAttrsToList (
-          _: userConfig:
-          let
-            persistentHome = concatPaths [
-              prefix
-              stateConfig.persistentStoragePath
-              userConfig.home
-            ];
-          in
+      homeCmds = lib.mapAttrsToList (
+        _: userConfig:
+        let
+          persistentHome = concatPaths [
+            prefix
+            stateConfig.persistentStoragePath
+            userConfig.home
+          ];
+        in
+        serial userConfig.home (
           [ "mkdir -p ${persistentHome}" ]
           ++ mkOwn {
             user = userConfig.username;
             group = userConfig.homeGroup;
             mode = userConfig.homeMode;
           } persistentHome
-        ) (getActiveUsers stateConfig.users)
-      );
+        )
+      ) (getActiveUsers stateConfig.users);
 
       # like `homeCmds`, emitted sequentially and shallowest first, so that the
       # parallel per-entry commands below can only ever find them already in place.
-      intermediateCmds = lib.concatLists (
+      intermediateCmds =
         map
           (
             dirConfig:
@@ -220,17 +246,18 @@ rec {
                 dirConfig.directory
               ];
             in
-            [ "mkdir -p ${persistentPath}" ]
-            ++ mkOwn dirConfig persistentPath
-            ++ [ "mkdir -p ${volatilePath}" ]
-            ++ mkOwn dirConfig volatilePath
+            serial dirConfig.directory (
+              [ "mkdir -p ${persistentPath}" ]
+              ++ mkOwn dirConfig persistentPath
+              ++ [ "mkdir -p ${volatilePath}" ]
+              ++ mkOwn dirConfig volatilePath
+            )
           )
           (
             lib.sort (
               a: b: builtins.lessThan (builtins.stringLength a.directory) (builtins.stringLength b.directory)
             ) intermediateDirs
-          )
-      );
+          );
 
       dirCmds = map (
         dirConfig:
@@ -245,7 +272,7 @@ rec {
             dirConfig.directory
           ];
         in
-        par (
+        par dirConfig.directory (
           [
             "mkdir -p ${persistentPath}"
             "mkdir -p ${volatilePath}"
@@ -278,7 +305,7 @@ rec {
             dirConfig.directory
           ];
         in
-        par (
+        par dirConfig.directory (
           lib.optionals dirConfig.createLinkTarget (
             [ "mkdir -p ${persistentPath}" ] ++ mkOwn dirConfig persistentPath
           )
@@ -304,7 +331,7 @@ rec {
             fileConfig.file
           ];
         in
-        par (
+        par fileConfig.file (
           [
             "mkdir -p ${parentDirectory persistentPath}"
             "touch ${persistentPath}"
@@ -339,7 +366,7 @@ rec {
             fileConfig.file
           ];
         in
-        par (
+        par fileConfig.file (
           lib.optionals fileConfig.createLinkTarget (
             [
               "mkdir -p ${parentDirectory persistentPath}"
