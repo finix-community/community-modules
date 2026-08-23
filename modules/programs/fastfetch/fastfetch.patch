@@ -1,8 +1,54 @@
-diff --git a/src/logo/ascii/finix.txt b/src/logo/ascii/finix.txt
+diff --git a/src/logo/ascii/f.inc b/src/logo/ascii/f.inc
+index 921d88cb9..4fdc6556a 100644
+--- a/src/logo/ascii/f.inc
++++ b/src/logo/ascii/f.inc
+@@ -3,6 +3,41 @@
+ #include "common/color.h"
+ 
+ static const FFlogo F[] = {
++    #ifdef FASTFETCH_DATATEXT_LOGO_FINIX
++    // Finix
++    {
++        .names = { "finix", "Finix" },
++        .lines = FASTFETCH_DATATEXT_LOGO_FINIX,
++        .colors = {
++            FF_COLOR_FG_RED,
++            FF_COLOR_FG_LIGHT_BLACK,
++            FF_COLOR_FG_RED,
++            FF_COLOR_FG_LIGHT_BLACK,
++            FF_COLOR_FG_RED,
++            FF_COLOR_FG_LIGHT_BLACK,
++        },
++        .colorKeys = FF_COLOR_FG_RED,
++        .colorTitle = FF_COLOR_FG_DEFAULT,
++    },
++    #endif
++    // FinixSmall
++    #ifdef FASTFETCH_DATATEXT_LOGO_FINIX_SMALL
++    {
++        .names = { "finix_small", "Finix_small" },
++        .type = FF_LOGO_LINE_TYPE_SMALL_BIT,
++        .lines = FASTFETCH_DATATEXT_LOGO_FINIX_SMALL,
++        .colors = {
++            FF_COLOR_FG_RED,
++            FF_COLOR_FG_LIGHT_BLACK,
++            FF_COLOR_FG_RED,
++            FF_COLOR_FG_LIGHT_BLACK,
++            FF_COLOR_FG_RED,
++            FF_COLOR_FG_LIGHT_BLACK,
++        },
++        .colorKeys = FF_COLOR_FG_RED,
++        .colorTitle = FF_COLOR_FG_DEFAULT,
++    },
++    #endif
+     #ifdef FASTFETCH_DATATEXT_LOGO_FASTFETCH
+     // Fastfetch
+     {
+diff --git a/src/logo/ascii/f/finix.txt b/src/logo/ascii/f/finix.txt
 new file mode 100644
-index 00000000..bbb8acae
+index 000000000..bbb8acae4
 --- /dev/null
-+++ b/src/logo/ascii/finix.txt
++++ b/src/logo/ascii/f/finix.txt
 @@ -0,0 +1,20 @@
 +          $1▗▄▄▄       $2▗▄▄▄▄    ▄▄▄▖
 +          $1▜███▙       $2▜███▙  ▟███▛
@@ -25,11 +71,11 @@ index 00000000..bbb8acae
 +         $5▟███▛  ▜███▙         $4▜███▙
 +         $5▝▀▀▀    ▀▀▀▀▘         $4▀▀▀▘
 \ No newline at end of file
-diff --git a/src/logo/ascii/finix_small.txt b/src/logo/ascii/finix_small.txt
+diff --git a/src/logo/ascii/f/finix_small.txt b/src/logo/ascii/f/finix_small.txt
 new file mode 100644
-index 00000000..524f96c2
+index 000000000..524f96c2e
 --- /dev/null
-+++ b/src/logo/ascii/finix_small.txt
++++ b/src/logo/ascii/f/finix_small.txt
 @@ -0,0 +1,7 @@
 +$1  ▗▄   $2▗▄ ▄▖
 +$1 ▄▄🬸█▄▄▄$2🬸█▛ $3▃
@@ -39,45 +85,3 @@ index 00000000..524f96c2
 +$6 🮃 $5▟█🬴$4▀▀▀█🬴▀▀
 +  $5▝▀ ▀▘   $4▀▘
 \ No newline at end of file
-diff --git a/src/logo/builtin.c b/src/logo/builtin.c
-index e16bb2b6..207664c5 100644
---- a/src/logo/builtin.c
-+++ b/src/logo/builtin.c
-@@ -1842,6 +1842,37 @@ static const FFlogo F[] = {
-         .colorKeys = FF_COLOR_FG_BLUE,
-         .colorTitle = FF_COLOR_FG_DEFAULT,
-     },
-+    // Finix
-+    {
-+        .names = { "finix", "Finix" },
-+        .lines = FASTFETCH_DATATEXT_LOGO_FINIX,
-+        .colors = {
-+            FF_COLOR_FG_RED,
-+            FF_COLOR_FG_LIGHT_BLACK,
-+            FF_COLOR_FG_RED,
-+            FF_COLOR_FG_LIGHT_BLACK,
-+            FF_COLOR_FG_RED,
-+            FF_COLOR_FG_LIGHT_BLACK,
-+        },
-+        .colorKeys = FF_COLOR_FG_RED,
-+        .colorTitle = FF_COLOR_FG_DEFAULT,
-+    },
-+    // FinixSmall
-+    {
-+        .names = { "finix_small", "Finix_small" },
-+        .type = FF_LOGO_LINE_TYPE_SMALL_BIT,
-+        .lines = FASTFETCH_DATATEXT_LOGO_FINIX_SMALL,
-+        .colors = {
-+            FF_COLOR_FG_RED,
-+            FF_COLOR_FG_LIGHT_BLACK,
-+            FF_COLOR_FG_RED,
-+            FF_COLOR_FG_LIGHT_BLACK,
-+            FF_COLOR_FG_RED,
-+            FF_COLOR_FG_LIGHT_BLACK,
-+        },
-+        .colorKeys = FF_COLOR_FG_RED,
-+        .colorTitle = FF_COLOR_FG_DEFAULT,
-+    },
-     // Finnix
-     {
-         .names = { "Finnix" },
