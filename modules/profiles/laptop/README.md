@@ -89,14 +89,16 @@ The output assumes nixos, so review it and strip out anything that references mo
 
 Two parallel stacks, switched by device manager:
 
-| | device mgr | seat mgr | wifi |
+| | device mgr | seat mgr | session mgr | wifi |
 |---|---|---|---|
-| `"standard"` | `udev` | `elogind` | `NetworkManager` |
-| `"minimal"` | `mdevd` | `seatd` | `iwd` |
+| `"full"` | `gardendevd` | `seatd` | `sessiond` | `NetworkManager` |
+| `"standard"` | `keventd` | `seatd` | `sessiond` | `iwd` |
+| `"minimal"` | `mdevd` | `seatd` | - | `iwd` |
 
 Flip with:
 
 ```nix
+profiles.laptop.hardwareSupport = "full";
 profiles.laptop.hardwareSupport = "standard";
 profiles.laptop.hardwareSupport = "minimal"
 ```
