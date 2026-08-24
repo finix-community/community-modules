@@ -1,0 +1,16 @@
+diff --git a/bootchartd.in b/bootchartd.in
+index 3030ac2..02a0ccf 100755
+--- a/bootchartd.in
++++ b/bootchartd.in
+@@ -104,6 +104,11 @@ wait_boot()
+ {
+ 	trap "" HUP
+ 
++	# With no EXIT_PROC configured there is nothing to watch for, and the
++	# poll below would spin forever - each iteration forks the collector via
++	# $USLEEP. Bail out and let collection be stopped externally instead.
++	[ -n "$EXIT_PROC" ] || return
++
+ 	# Wait for /proc first - without it we have issues
+ 	while [ ! -e /proc/cmdline ]; do
+ 		$USLEEP 50000

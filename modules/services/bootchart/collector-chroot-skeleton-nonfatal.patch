@@ -1,0 +1,27 @@
+diff --git a/collector/collector.c b/collector/collector.c
+index eb38754..e985650 100644
+--- a/collector/collector.c
++++ b/collector/collector.c
+@@ -642,11 +642,17 @@ static int enter_environment(int console_debug)
+ 	mkdir(TMPFS_PATH EARLY_PREFIX LIBDIR, 0777);
+ 	mkdir(TMPFS_PATH PKGLIBDIR, 0777);
+ 	if (symlink("../..", TMPFS_PATH TMPFS_PATH)) {
+-		if (errno != EEXIST) {
+-			log("bootchart-collector failed to create a chroot at "
+-			    TMPFS_PATH TMPFS_PATH " error '%s'\n", strerror(errno));
+-			return 1;
+-		}
++		if (errno != EEXIST)
++			/*
++			 * Non-fatal: this chroot skeleton is only needed when the
++			 * collector must survive a switch_root (init mode). For a
++			 * running-system profile (-r) it is never used, and where
++			 * PKGLIBDIR is a deep read-only path (e.g. the Nix store)
++			 * the non-recursive mkdir()s above cannot build it. Warn
++			 * and continue rather than aborting the collector.
++			 */
++			log("bootchart-collector: skipping chroot skeleton at "
++			    TMPFS_PATH TMPFS_PATH ": '%s'\n", strerror(errno));
+ 	}
+ 
+ 	return 0;
