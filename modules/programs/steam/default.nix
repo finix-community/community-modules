@@ -199,11 +199,13 @@ in
     services.dbus.enable = true;
 
     environment.systemPackages = [
-      (lib.hiPrio gamescopeSessionFile)
       cfg.package
       cfg.package.run
     ]
-    ++ lib.optional cfg.gamescopeSession.enable steam-gamescope
+    ++ lib.optionals cfg.gamescopeSession.enable [
+      steam-gamescope
+      (lib.hiPrio gamescopeSessionFile)
+    ]
     ++ lib.optional cfg.protontricks.enable (
       cfg.protontricks.package.override { inherit extraCompatPaths; }
     );
