@@ -23,7 +23,7 @@
 
   testScript = ''
     machine.start()
-    machine.wait_for_console_text("entering runlevel 2")
+    machine.wait_for_console_text("entering runlevel 2", timeout=600)
 
     with subtest("a shell is available"):
         machine.succeed("test -x /run/current-system/sw/bin/bash")

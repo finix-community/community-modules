@@ -10,7 +10,7 @@
 
   testScript = ''
     machine.start()
-    machine.wait_for_console_text("entering runlevel 2")
+    machine.wait_for_console_text("entering runlevel 2", timeout=600)
 
     with subtest("tmpfiles laid down the state directories"):
         for d in ["/etc/cups", "/run/cups", "/var/lib/cups", "/var/spool/cups"]:

@@ -14,7 +14,7 @@
     in
     ''
       machine.start()
-      machine.wait_for_console_text("entering runlevel 2")
+      machine.wait_for_console_text("entering runlevel 2", timeout=600)
 
       with subtest("tmpfiles created the loader symlink"):
           machine.wait_until_succeeds("test -L /${libDir}/ld-linux-x86-64.so.2", timeout=180)

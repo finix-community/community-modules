@@ -9,7 +9,7 @@
 
   testScript = ''
     machine.start()
-    machine.wait_for_console_text("entering runlevel 2")
+    machine.wait_for_console_text("entering runlevel 2", timeout=600)
 
     with subtest("it is on PATH"):
         machine.succeed("fastfetch --version")

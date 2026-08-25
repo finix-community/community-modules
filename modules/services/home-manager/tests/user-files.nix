@@ -25,7 +25,7 @@
 
   testScript = ''
     machine.start()
-    machine.wait_for_console_text("entering runlevel 2")
+    machine.wait_for_console_text("entering runlevel 2", timeout=600)
 
     with subtest("the managed file was linked into the home directory"):
         machine.wait_until_succeeds("test -e /home/compat/.compat-probe", timeout=180)

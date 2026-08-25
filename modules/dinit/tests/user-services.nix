@@ -39,7 +39,7 @@
 
   testScript = ''
     machine.start()
-    machine.wait_for_console_text("entering runlevel 2")
+    machine.wait_for_console_text("entering runlevel 2", timeout=600)
 
     # the socket lives in the user's own home: whether a session ever got an
     # XDG_RUNTIME_DIR is a login manager's business, not dinit's, and /tmp is

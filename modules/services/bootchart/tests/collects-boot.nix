@@ -11,7 +11,7 @@
 
   testScript = ''
     machine.start()
-    machine.wait_for_console_text("entering runlevel 2")
+    machine.wait_for_console_text("entering runlevel 2", timeout=600)
 
     with subtest("the collector config reached /etc"):
         machine.succeed("test -f /etc/bootchartd.conf")

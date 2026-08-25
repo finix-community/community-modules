@@ -10,7 +10,7 @@
 
   testScript = ''
     machine.start()
-    machine.wait_for_console_text("entering runlevel 2")
+    machine.wait_for_console_text("entering runlevel 2", timeout=600)
 
     with subtest("the state directory was created for the service user"):
         machine.wait_until_succeeds("test -d /var/lib/yarr", timeout=180)
