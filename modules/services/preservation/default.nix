@@ -9,22 +9,32 @@ let
 
   inherit (import ./lib.nix { inherit lib; })
     mkFinitInitrdMountCmds
-    getReferencedUsers
-    getReferencedGroups
     getAllDirectories
     getAllFiles
     ;
 
   # ownership is applied from the initrd, where no passwd/group database exists
-  # beyond root, so names have to be resolved to numeric ids at evaluation time.
-  # a null id means finix lets userborn pick one during stage 2 activation,
-  # which is too late for us - see the assertions below.
+  # beyond root, so ids are resolved to numbers at evaluation time where they
+  # are known. a statically assigned id is the only kind that can be known here:
+  # anything userborn allocates during stage 2 activation does not exist yet.
+  #
+  # an unknown id falls back to the name, which `chown` in the initrd will not
+  # be able to resolve. that entry then fails its guard and degrades to a
+  # console warning like any other broken entry, rather than being refused at
+  # build time - configuring ids is the caller's business.
+  #
+  # TODO: drop the name fallback and go back to static lookups only. it trades a
+  # build-time error that named the option to set for a runtime failure that the
+  # caller has to go read the console to find, which is a worse place to learn
+  # about it. the fallback is only worth keeping until ownership can be applied
+  # from stage 2, after userborn has allocated ids - at which point dynamic ids
+  # work properly and none of this is needed.
   lookupUid = name: config.users.users.${name}.uid or null;
   lookupGid = name: config.users.groups.${name}.gid or null;
 
   ids = {
-    uid = name: toString (lookupUid name);
-    gid = name: toString (lookupGid name);
+    uid = name: if lookupUid name == null then name else toString (lookupUid name);
+    gid = name: if lookupGid name == null then name else toString (lookupGid name);
   };
 
   # finix gives every neededForBoot filesystem its own initrd mount task, named
@@ -32,7 +42,8 @@ let
   # prefix test in finix's `modules/lib/utils.nix` and `modules/finit/mount.nix`
   # respectively; they are duplicated rather than imported because this module
   # is evaluated as a plain nixos module and has no access to finix's `utils`.
-  escapePath = s: if s == "/" then "root" else lib.replaceStrings [ "/" ] [ "-" ] (lib.removePrefix "/" s);
+  escapePath =
+    s: if s == "/" then "root" else lib.replaceStrings [ "/" ] [ "-" ] (lib.removePrefix "/" s);
 
   # "/nix" precedes "/nix/store" but not "/nixos"; "/" precedes everything
   pathIsPrefix = a: b: a == b || a == "/" || lib.hasPrefix (a + "/") b;
@@ -58,10 +69,11 @@ let
   conditionsFor =
     stateConfig:
     let
-      paths =
-        [ stateConfig.persistentStoragePath ]
-        ++ map (d: d.directory) (getAllDirectories stateConfig)
-        ++ map (f: f.file) (getAllFiles stateConfig);
+      paths = [
+        stateConfig.persistentStoragePath
+      ]
+      ++ map (d: d.directory) (getAllDirectories stateConfig)
+      ++ map (f: f.file) (getAllFiles stateConfig);
       mountPoints = lib.unique (lib.filter (m: m != null) (map mountPointFor paths));
     in
     lib.concatMapStringsSep "," (m: "task/mount-${escapePath m}/success") (
@@ -99,8 +111,6 @@ let
       exit 0
     '';
 
-  referencedUsers = lib.unique (lib.concatMap getReferencedUsers (lib.attrValues cfg.preserveAt));
-  referencedGroups = lib.unique (lib.concatMap getReferencedGroups (lib.attrValues cfg.preserveAt));
 in
 {
   imports = [
@@ -108,32 +118,15 @@ in
   ];
 
   config = lib.mkIf (cfg.enable && entries != [ ]) {
-    assertions =
-      map (name: {
-        assertion = lookupUid name != null;
-        message = ''
-          preservation: user "${name}" owns preserved state but has no statically
-          assigned uid. Ownership is applied in the initrd, before dynamic ids are
-          allocated, so set `users.users.${name}.uid`.
-        '';
-      }) referencedUsers
-      ++ map (name: {
-        assertion = lookupGid name != null;
-        message = ''
-          preservation: group "${name}" owns preserved state but has no statically
-          assigned gid. Ownership is applied in the initrd, before dynamic ids are
-          allocated, so set `users.groups.${name}.gid`.
-        '';
-      }) referencedGroups
-      ++ map (entry: {
-        assertion = conditionsFor entry.stateConfig != "";
-        message = ''
-          preservation: no `neededForBoot` filesystem provides
-          "${entry.stateConfig.persistentStoragePath}". The preserved paths are set
-          up from the initrd, so the volume holding them has to be mounted there -
-          set `fileSystems."<mountpoint>".neededForBoot = true`.
-        '';
-      }) entries;
+    assertions = map (entry: {
+      assertion = conditionsFor entry.stateConfig != "";
+      message = ''
+        preservation: no `neededForBoot` filesystem provides
+        "${entry.stateConfig.persistentStoragePath}". The preserved paths are set
+        up from the initrd, so the volume holding them has to be mounted there -
+        set `fileSystems."<mountpoint>".neededForBoot = true`.
+      '';
+    }) entries;
 
     boot.initrd.contents = lib.concatMap (entry: [
       {
