@@ -1,0 +1,6 @@
+# scratch space for the compatibility suite: the finix checkout it ran
+# against, raw results and logs. the state it keeps lives in ci/.
+/.ci/
+
+result
+result-*
