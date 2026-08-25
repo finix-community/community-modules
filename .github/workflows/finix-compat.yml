@@ -1,0 +1,108 @@
+name: finix compatibility
+
+# runs the suite in tests/ against finix *main*, not the pin in lon.lock, and
+# records the result in COMPATIBILITY.md. that is what makes the table's answer
+# - "the last finix commit this module worked with" - move on its own.
+#
+# module failures are recorded, not fatal: this repository says up front that
+# its modules may be minimally maintained and may break. `nix flake check` in
+# ci.yml is the gate that does go red, and it runs against the pinned finix.
+
+on:
+  push:
+    # the table is committed by this workflow; without this it would retrigger
+    # itself forever, since every run stamps a new timestamp into it.
+    paths-ignore:
+      - COMPATIBILITY.md
+      - ci/compat-state.json
+  pull_request:
+  # finix moves whether or not anything lands here, so re-check daily
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: finix-compat-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # the table is committed back on main, and pushing from a shallow
+          # clone after a rebase is rejected
+          fetch-depth: 0
+
+      - name: Make /dev/kvm usable
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: |
+            extra-experimental-features = pipe-operators
+            system-features = nixos-test benchmark big-parallel kvm
+
+      - name: Check out finix main
+        id: finix
+        run: |
+          git clone --depth 1 https://github.com/finix-community/finix .ci/finix
+          echo "rev=$(git -C .ci/finix rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "date=$(git -C .ci/finix log -1 --format=%cs)" >> "$GITHUB_OUTPUT"
+
+      - name: Run the suite
+        run: FINIX="$PWD/.ci/finix" ci/run-suite.sh
+
+      - name: Render the table
+        run: |
+          args=(
+            --arg finix ./.ci/finix
+            --arg manifest ./.ci/run/manifest.json
+            --arg results ./.ci/run/results.json
+            --argstr rev "${{ steps.finix.outputs.rev }}"
+            --argstr revDate "${{ steps.finix.outputs.date }}"
+            --argstr checkedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          )
+          # absent on the very first run
+          if [ -f ci/compat-state.json ]; then
+            args+=(--arg state ./ci/compat-state.json)
+          fi
+
+          nix-build ci/report.nix "${args[@]}" -o .ci/report
+          cp .ci/report/compat-state.json ci/compat-state.json
+          cp .ci/report/COMPATIBILITY.md COMPATIBILITY.md
+
+          cat COMPATIBILITY.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: finix-compat-logs
+          path: .ci/run/logs
+          retention-days: 14
+
+      - name: Commit the table
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add COMPATIBILITY.md ci/compat-state.json
+
+          if git diff --cached --quiet; then
+            echo "table unchanged"
+            exit 0
+          fi
+
+          git commit -m "ci: update finix compatibility table [skip ci]"
+          git pull --rebase --autostash origin main
+          git push

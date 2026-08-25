@@ -23,6 +23,11 @@ this repository prioritizes:
 - ecosystem growth
 - low contribution friction
 
+because of that, [COMPATIBILITY.md](COMPATIBILITY.md) records, per module, the
+last `finix` commit it was known to work with. it is regenerated on every push
+and daily against `finix` `main`. check it before reaching for a module, and
+see [tests/README.md](tests/README.md) to add a test for one.
+
 # usage (flake-based)
 
 to use this repository, add the following to your flake inputs:

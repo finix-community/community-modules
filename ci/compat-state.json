@@ -1,0 +1,345 @@
+{
+  "modules": {
+    "amnezia-vpn": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "bootchart": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "cups": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "dinit": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "fastfetch": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "gamescope": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "home-manager": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "laptop": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "minimal": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "nix-ld": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "openrgb": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "pipewire": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "preservation": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "river": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "soteria": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "steam": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "tailscale": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "v2rayn": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "xinetd": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    },
+    "yarr": {
+      "checks": "eval",
+      "failures": [],
+      "lastChecked": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "lastGood": {
+        "checkedAt": "2026-08-25T13:55:06Z",
+        "date": "2026-08-23",
+        "rev": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+        "system": "x86_64-linux"
+      },
+      "status": "passing"
+    }
+  },
+  "version": 1
+}
