@@ -8,7 +8,7 @@ work with. a module row that lags behind the commit at the top of this file
 has fallen behind and needs a look.
 
 - last checked against finix [`78fd549`](https://github.com/finix-community/finix/commit/78fd549fa5410ad1e5683efbba2d0f1728c12f3d) (2026-08-23)
-- on `x86_64-linux`, at 2026-08-25T13:55:06Z
+- on `x86_64-linux`, at 2026-08-25T14:44:52Z
 
 | module | checked | status | last finix commit it worked with | that commit |
 | --- | --- | --- | --- | --- |
@@ -38,16 +38,16 @@ system with the module enabled and instantiates its closure, which catches
 the option and api drift that breaks these modules in practice. `eval + vm`
 also boots that system under qemu and asserts the module does its job.
 
-## why some modules are eval-only
+## what is not booted, and why
 
-- `amnezia-vpn` - gui client started by hand from a desktop session; there is nothing to assert on a headless vm
-- `dinit` - generates dinit unit files; finit is pid 1 on a finix host, so nothing here supervises them
-- `gamescope` - a compositor needs a gpu and a seat; the test vm has neither
-- `laptop` - an opinionated hardware profile - firmware, backlight, power management; what it does only shows up on a real laptop
-- `openrgb` - drives rgb controllers over i2c/smbus, none of which a vm has
-- `pipewire` - needs a sound device and a logged-in seat to reach a running graph
-- `preservation` - acts from the initrd against a persistent volume; the test vm boots on a tmpfs root with no second volume to preserve to
-- `river` - a wayland compositor needs a gpu and a seat; the test vm has neither
-- `soteria` - polkit agent for a graphical session; a headless vm has no session to authenticate for
-- `steam` - pulls the 32-bit graphics stack and wants a gpu; far too large to boot in ci
-- `v2rayn` - gui client started by hand from a desktop session; there is nothing to assert on a headless vm
+- `amnezia-vpn` (eval - gui client started by hand from a desktop session; there is nothing to assert on a headless vm)
+- `dinit` (system-services - system-level dinit services; finit is pid 1 on finix, so nothing supervises them - the user half is booted in tests/user-services.nix)
+- `gamescope` (eval - a compositor needs a gpu and a seat; the test vm has neither)
+- `laptop` (eval - an opinionated hardware profile - firmware, backlight, power management; what it does only shows up on a real laptop)
+- `openrgb` (eval - drives rgb controllers over i2c/smbus, none of which a vm has)
+- `pipewire` (eval - needs a sound device and a logged-in seat to reach a running graph)
+- `preservation` (eval - acts from the initrd against a persistent volume; the test vm boots on a tmpfs root with no second volume to preserve to)
+- `river` (eval - a wayland compositor needs a gpu and a seat; the test vm has neither)
+- `soteria` (eval - polkit agent for a graphical session; a headless vm has no session to authenticate for)
+- `steam` (eval - pulls the 32-bit graphics stack and wants a gpu; far too large to boot in ci)
+- `v2rayn` (eval - gui client started by hand from a desktop session; there is nothing to assert on a headless vm)

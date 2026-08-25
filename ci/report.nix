@@ -65,13 +65,14 @@ let
       ]
     );
 
-  # why a module is eval-only, taken from the `note` in its test file
-  noteOf =
+  # why something was not booted, taken from the `note` in its test file. only
+  # eval-only tests count: a module can have one test booted in a vm and
+  # another that cannot be, and only the second owes an explanation.
+  notesOf =
     module:
-    let
-      notes = lib.filter (n: n != "") (map (e: e.note) (entriesFor module));
-    in
-    if notes == [ ] then "" else lib.concatStringsSep "; " notes;
+    map (e: "${e.test} - ${cell e.note}") (
+      lib.filter (e: e.note != "" && !(builtins.elem "vm" e.kinds)) (entriesFor module)
+    );
 
   failuresOf = module: map (r: "${r.test}:${r.kind}") (lib.filter (r: !r.ok) (resultsFor module));
 
@@ -116,7 +117,7 @@ let
     + (if good == null then "–" else good.date)
     + " |";
 
-  evalOnly = lib.filter (m: noteOf m != "") modules;
+  notBooted = lib.filter (m: notesOf m != [ ]) modules;
 
   broken = lib.filter (m: newState.modules.${m}.status == "failing") modules;
 
@@ -158,10 +159,12 @@ let
     ) broken}
 
   ''
-  + lib.optionalString (evalOnly != [ ]) ''
-    ## why some modules are eval-only
+  + lib.optionalString (notBooted != [ ]) ''
+    ## what is not booted, and why
 
-    ${lib.concatMapStringsSep "\n" (m: "- `${m}` - ${cell (noteOf m)}") evalOnly}
+    ${lib.concatMapStringsSep "\n" (
+      m: lib.concatMapStringsSep "\n" (note: "- `${m}` (${note})") (notesOf m)
+    ) notBooted}
   '';
 in
 pkgs.runCommand "finix-compat-report" { } ''

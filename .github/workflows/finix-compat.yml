@@ -78,8 +78,10 @@ jobs:
           fi
 
           nix-build ci/report.nix "${args[@]}" -o .ci/report
-          cp .ci/report/compat-state.json ci/compat-state.json
-          cp .ci/report/COMPATIBILITY.md COMPATIBILITY.md
+          # -m 644: store paths are read-only, and copying the mode along would
+          # make the next run unable to overwrite them
+          install -m 644 .ci/report/compat-state.json ci/compat-state.json
+          install -m 644 .ci/report/COMPATIBILITY.md COMPATIBILITY.md
 
           cat COMPATIBILITY.md >> "$GITHUB_STEP_SUMMARY"
 
