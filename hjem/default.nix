@@ -1,1 +1,4 @@
-{ dinit = ./dinit; }
+{
+  dinit = ./dinit;
+  noctalia = ./noctalia;
+}
