@@ -61,6 +61,19 @@ while IFS=$'\t' read -r module test kinds; do
     if nix-build "${nix_args[@]}" -A "$attr" --no-out-link > "$log" 2>&1; then
       ok=true
       echo "ok"
+    elif [ "$kind" = vm ] && grep -q "Timeout waiting for mount-nix-store" "$log"; then
+      # the vm never got its 9p store mount and so never booted. that is the
+      # host being slow, not the module being broken, and recording it as
+      # broken would move the module's last-good commit for no reason.
+      echo -n "retrying (vm did not boot) ... "
+      if nix-build "${nix_args[@]}" -A "$attr" --no-out-link > "$log" 2>&1; then
+        ok=true
+        echo "ok"
+      else
+        ok=false
+        failed=$((failed + 1))
+        echo "FAILED (see ${log#"$root"/})"
+      fi
     else
       ok=false
       failed=$((failed + 1))

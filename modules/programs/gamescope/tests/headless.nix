@@ -27,11 +27,16 @@
         machine.succeed("gamescope --help >/tmp/gamescope-help 2>&1 || true")
         assert "gamescope version" in machine.succeed("cat /tmp/gamescope-help")
 
+    with subtest("a vulkan driver is available to it"):
+        machine.succeed("ls /run/opengl-driver/share/vulkan/icd.d/*.json")
+
     with subtest("it starts headless and runs its child"):
         machine.succeed("mkdir -p /run/user/0")
+        # the icd list is globbed rather than named, so this does not care
+        # which architecture lavapipe was built for
         machine.succeed(
             "XDG_RUNTIME_DIR=/run/user/0"
-            " VK_ICD_FILENAMES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json"
+            ' VK_ICD_FILENAMES="$(echo /run/opengl-driver/share/vulkan/icd.d/*.json | tr " " :)"'
             " gamescope --backend headless"
             " -- /bin/sh -c 'echo ran > /tmp/gamescope-child'"
             " >/tmp/gamescope.log 2>&1 &"

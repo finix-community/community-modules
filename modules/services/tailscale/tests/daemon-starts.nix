@@ -17,8 +17,16 @@
         machine.wait_until_succeeds("test -d /run/tailscale", timeout=180)
         machine.wait_until_succeeds("test -d /var/lib/tailscale", timeout=180)
 
+    with subtest("the daemon waits for a default route, as its unit declares"):
+        # the test network is a static /24 with no gateway, so nothing has
+        # satisfied `net/route/default` yet
+        machine.fail("pgrep -f tailscaled")
+        machine.succeed("ip route add default via 192.168.1.254 dev eth0")
+
     with subtest("the daemon is running"):
-        machine.wait_until_succeeds("pgrep -x tailscaled", timeout=180)
+        # the module runs tailscaled through a generated script, so the process
+        # is not named plainly after the binary
+        machine.wait_until_succeeds("pgrep -f tailscaled", timeout=180)
         machine.wait_until_succeeds("test -S /run/tailscale/tailscaled.sock", timeout=180)
 
     with subtest("the cli reaches the daemon"):

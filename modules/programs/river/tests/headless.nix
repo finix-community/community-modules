@@ -6,6 +6,14 @@
   machine = {
     services.mdevd.enable = true;
 
+    # xwayland wants to create its socket under /tmp/.X11-unix, and the
+    # driver's root is a fresh tmpfs where /tmp ends up mode 755
+    fileSystems."/tmp" = {
+      device = "tmpfs";
+      fsType = "tmpfs";
+      options = [ "mode=1777" ];
+    };
+
     users.users.compat = {
       isNormalUser = true;
       home = "/home/compat";
@@ -29,9 +37,6 @@
         machine.succeed("command -v river-init")
 
     machine.succeed("mkdir -p /run/user/1000 && chown compat: /run/user/1000")
-    # river is built with xwayland, which wants to create its socket under
-    # /tmp/.X11-unix - and the driver's tmpfs root leaves /tmp mode 755
-    machine.succeed("chmod 1777 /tmp")
     env = "XDG_RUNTIME_DIR=/run/user/1000 WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1"
     as_user = lambda cmd: f"su compat -c {(env + ' ' + cmd)!r}"
 
@@ -48,7 +53,10 @@
     with subtest("it ran the init script the module generated"):
         machine.wait_until_succeeds("test -e /home/compat/river-init-ran", timeout=180)
 
-    with subtest("riverctl reaches the running compositor"):
+    # river 0.4 split riverctl and rivertile out of the river repository, and
+    # this nixpkgs packages neither - so the init script the module generates,
+    # whose whole documented purpose is riverctl calls, has nothing to run
+    with subtest("the init script's riverctl commands are runnable"):
         display = machine.succeed(
             "ls /run/user/1000 | grep -m1 '^wayland-[0-9]$'"
         ).strip()

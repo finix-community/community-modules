@@ -1,5 +1,6 @@
-# nix-ld's whole job is that the path a foreign binary asks for -
-# /lib64/ld-linux-x86-64.so.2 and friends - exists and resolves.
+# nix-ld's whole job is that the path a foreign binary asks for - the
+# platform's dynamic loader, /lib64/ld-linux-x86-64.so.2 on x86_64 - exists and
+# resolves to nix-ld.
 {
   machine = {
     services.mdevd.enable = true;
@@ -10,16 +11,24 @@
   testScript =
     { nodes }:
     let
-      inherit (nodes.machine.config.nixpkgs.pkgs.stdenv.hostPlatform) libDir;
+      pkgs = nodes.machine.config.nixpkgs.pkgs;
+
+      inherit (pkgs.stdenv.hostPlatform) libDir;
+
+      # the same name the module derives its tmpfiles rule from, so this test
+      # follows the platform rather than hardcoding x86_64
+      loader =
+        "/${libDir}/"
+        + builtins.unsafeDiscardStringContext (baseNameOf pkgs.stdenv.cc.bintools.dynamicLinker);
     in
     ''
       machine.start()
       machine.wait_for_console_text("entering runlevel 2", timeout=600)
 
       with subtest("tmpfiles created the loader symlink"):
-          machine.wait_until_succeeds("test -L /${libDir}/ld-linux-x86-64.so.2", timeout=180)
-          machine.succeed("test -x /${libDir}/ld-linux-x86-64.so.2")
-          target = machine.succeed("readlink /${libDir}/ld-linux-x86-64.so.2")
+          machine.wait_until_succeeds("test -L ${loader}", timeout=180)
+          machine.succeed("test -x ${loader}")
+          target = machine.succeed("readlink ${loader}")
           assert "nix-ld" in target, f"loader points at {target.strip()!r}, not nix-ld"
 
       with subtest("the libraries it hands out are installed"):

@@ -15,9 +15,11 @@
     with subtest("the daemon is running"):
         machine.wait_until_succeeds("pgrep -f AmneziaVPN-service", timeout=180)
 
-    with subtest("its dbus policy was installed from the package"):
-        # /etc/dbus-1 is a symlink into the store, hence -L
-        machine.succeed("find -L /etc/dbus-1 -iname '*amnezia*' | grep -q .")
+    with subtest("the bus the daemon is wired to is running"):
+        # the module puts the package in `services.dbus.packages`, but the
+        # package ships no policy of its own - nothing under /etc/dbus-1 comes
+        # from it - so all that line buys today is dbus being enabled at all
+        machine.wait_until_succeeds("pgrep -x dbus-daemon", timeout=180)
 
     with subtest("the client and the resolver it depends on are installed"):
         machine.succeed("command -v AmneziaVPN")
