@@ -29,6 +29,8 @@ in
 
         The formerly valid `FLAKE` is now deprecated by nh, and will cause hard errors
         in future releases if `NH_FLAKE` is not set.
+
+        `NH_FLAKE` can point to either a folder containing a flake, or to an outside repository containing the flake
       '';
     };
 
@@ -67,7 +69,7 @@ in
     assertions = [
       {
         assertion = (cfg.flake != null) -> !(lib.hasSuffix ".nix" cfg.flake);
-        message = "nh.flake must be a directory, not a nix file";
+        message = "nh.flake must be a directory, or valid repository, not a nix file";
       }
     ];
 
