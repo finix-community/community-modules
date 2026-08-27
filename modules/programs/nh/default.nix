@@ -74,7 +74,7 @@ in
     providers.scheduler = {
       backend = lib.mkDefault "cron";
       tasks.nh-clean = {
-        command = "exec ${lib.getExe cfg.package} clean all ${cfg.clean.extraArgs}";
+        command = "${lib.getExe cfg.package} clean all ${cfg.clean.extraArgs}";
         interval = cfg.clean.dates;  
       };
     };
