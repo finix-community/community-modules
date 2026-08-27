@@ -71,7 +71,7 @@ in
       };
     };
 
-    providers.scheduler = {
+    providers.scheduler = lib.mkIf cfg.clean.enable {
       backend = lib.mkDefault "cron";
       tasks.nh-clean = {
         command = "${lib.getExe cfg.package} clean all ${cfg.clean.extraArgs}";
