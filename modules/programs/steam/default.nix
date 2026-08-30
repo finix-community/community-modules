@@ -200,7 +200,6 @@ in
 
     environment.systemPackages = [
       cfg.package
-      cfg.package.run
     ]
     ++ lib.optionals cfg.gamescopeSession.enable [
       steam-gamescope
