@@ -80,7 +80,7 @@ let
     if [ "${lib.boolToString cfg.secureBoot.enable}" = "true" ]; then
       if [ -d ${cfg.secureBoot.keyLocation} ]; then
         echo "==> sbctl: signing kernel"
-        ${cfg.secureBoot.sbctl}/bin/sbctl sign "$KERNEL_PATH" || \
+        ${lib.getExe' cfg.secureBoot.sbctl "sbctl"} sign "$KERNEL_PATH" || \
           echo "WARNING: sbctl signing failed, but continuing (Secure Boot may not work)"
       fi
     fi
