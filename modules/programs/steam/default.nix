@@ -198,7 +198,9 @@ in
 
     services.dbus.enable = true;
 
-    environment.systemPackages = [ cfg.package ]
+    environment.systemPackages = [
+      cfg.package
+    ]
     ++ lib.optionals cfg.gamescopeSession.enable [
       steam-gamescope
       (lib.hiPrio gamescopeSessionFile)
