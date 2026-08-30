@@ -32,6 +32,8 @@
 let
   inherit (pkgs) lib;
 
+  modulePaths = import ../modules;
+
   commitUrl = "https://github.com/finix-community/finix/commit";
 
   manifestData = builtins.fromJSON (builtins.readFile manifest);
@@ -46,6 +48,37 @@ let
   };
 
   modules = lib.sort (a: b: a < b) (lib.unique (map (e: e.module) manifestData));
+
+  # which `modules/<kind>` directory a module's path came from - "other" is a
+  # catch-all so a module placed outside programs/services/profiles (like
+  # dinit) still shows up somewhere, rather than quietly dropping off the
+  # table.
+  categories = [
+    "programs"
+    "services"
+    "profiles"
+    "other"
+  ];
+
+  categoryDirs = {
+    programs = toString ../modules/programs + "/";
+    services = toString ../modules/services + "/";
+    profiles = toString ../modules/profiles + "/";
+  };
+
+  categoryOf =
+    module:
+    let
+      path = toString modulePaths.${module};
+      matches = lib.filter (cat: lib.hasPrefix categoryDirs.${cat} path) [
+        "programs"
+        "services"
+        "profiles"
+      ];
+    in
+    if matches == [ ] then "other" else lib.head matches;
+
+  modulesByCategory = lib.genAttrs categories (cat: lib.filter (m: categoryOf m == cat) modules);
 
   entriesFor = module: lib.filter (e: e.module == module) manifestData;
   resultsFor = module: lib.filter (r: r.module == module) resultsData.results;
@@ -121,6 +154,20 @@ let
 
   broken = lib.filter (m: newState.modules.${m}.status == "failing") modules;
 
+  tableFor = mods: ''
+    | module | checked | status | last finix commit it worked with | that commit |
+    | --- | --- | --- | --- | --- |
+    ${lib.concatMapStringsSep "\n" row mods}
+  '';
+
+  sectionFor =
+    cat:
+    lib.optionalString (modulesByCategory.${cat} != [ ]) ''
+      ## ${cat}
+
+      ${tableFor modulesByCategory.${cat}}
+    '';
+
   markdown = ''
     # module compatibility
 
@@ -134,10 +181,7 @@ let
     - last checked against finix ${link rev} (${revDate})
     - on `${resultsData.system}`, at ${checkedAt}
 
-    | module | checked | status | last finix commit it worked with | that commit |
-    | --- | --- | --- | --- | --- |
-    ${lib.concatMapStringsSep "\n" row modules}
-
+    ${lib.concatMapStrings sectionFor categories}
     `checked` says how far the suite got with a module. `eval` builds a finix
     system with the module enabled and instantiates its closure, which catches
     the option and api drift that breaks these modules in practice. `eval + vm`
