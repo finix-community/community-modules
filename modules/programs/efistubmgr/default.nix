@@ -7,14 +7,15 @@
 let
   cfg = config.programs.efistubmgr;
   ESP_REL_DIR = "${lib.removePrefix "/" (lib.removePrefix cfg.efiMountPoint cfg.bootDir)}";
-  efistubHook = pkgs.writeShellScript "efistub-install" ''
+  efistubHook = pkgs.writeScript "efistub-install" ''
+    #!${config.environment.binsh}
     set -euo pipefail
 
     # ── Paths & metadata ──────────────────────────────────────────────────────
 
     EFISTUBMGR="${cfg.package}/bin/efistubmgr"
 
-    TIMESTAMP=$(${pkgs.coreutils}/bin/date +%s)
+    TIMESTAMP=$(${lib.getExe' config.programs.coreutils.package "date"} +%s)
     KERNEL_PATH="${cfg.bootDir}/kernel-$TIMESTAMP.efi"
     INITRD_PATH="${cfg.bootDir}/initrd-$TIMESTAMP"
 
@@ -31,9 +32,9 @@ let
         case "$(readlink "$link")" in
           "$target"|"$path")
             printf '%s\n' "$link" |
-              ${pkgs.gnugrep}/bin/grep -oE 'system-[0-9]+-link' |
-              ${pkgs.gnugrep}/bin/grep -oE '[0-9]+' |
-              ${pkgs.gawk}/bin/awk '{print "rev. " $1}'
+              ${lib.getExe' config.programs.coreutils.package "grep"} -oE 'system-[0-9]+-link' |
+              ${lib.getExe' config.programs.coreutils.package "grep"} -oE '[0-9]+' |
+              ${lib.getExe' cfg.awk.package "awk"} '{print "rev. " $1}'
             return
             ;;
         esac
@@ -41,23 +42,11 @@ let
     }
 
     is_kept_timestamp() {
-      local needle="$1"
-
-      for ts in "''${KEEP_TIMESTAMPS[@]}"; do
-        [ "$ts" = "$needle" ] && return 0
-      done
-
-      return 1
+      printf '%s\n' "$KEEP_TIMESTAMPS" | grep -Fxq "$1"
     }
 
     is_seen_timestamp() {
-      local needle="$1"
-
-      for ts in "''${ORPHAN_TIMESTAMPS[@]}"; do
-        [ "$ts" = "$needle" ] && return 0
-      done
-
-      return 1
+      printf '%s\n' "$ORPHAN_TIMESTAMPS" | grep -Fxq "$1"
     }
 
     # ── Validate & read bootspec ──────────────────────────────────────────────
@@ -99,7 +88,7 @@ let
     # ── Create NVRAM entry ────────────────────────────────────────────────────
 
     echo "==> Creating new primary entry: $DESCRIPTION (timestamp $TIMESTAMP)"
-    ESP_REL_DIR_WIN=$(${pkgs.coreutils}/bin/tr '/' '\\' <<< "${ESP_REL_DIR}")
+    ESP_REL_DIR_WIN=$(printf '%s' "${ESP_REL_DIR}" | ${lib.getExe' config.programs.coreutils.package "tr"} '/' '\\')
     ESP_KERNEL_PATH="\\''${ESP_REL_DIR_WIN}\\kernel-$TIMESTAMP.efi"
     ESP_INITRD_PATH="\\''${ESP_REL_DIR_WIN}\\initrd-$TIMESTAMP"
     NEW_ID=$("$EFISTUBMGR" create "${cfg.efiMountPoint}" \
@@ -112,31 +101,41 @@ let
 
     # ── Keep newest generations ───────────────────────────────────────────────
 
-    mapfile -t GENERATIONS < <("$EFISTUBMGR" list)
-    echo "==> ''${#GENERATIONS[@]} finix generation(s) in NVRAM"
+    IFS='
+    '
+    set -- $("$EFISTUBMGR" list)
+    unset IFS
 
-    KEEP_TIMESTAMPS=()
-    for line in "''${GENERATIONS[@]:0:${toString cfg.maxGenerations}}"; do
-      KEEP_TIMESTAMPS+=(
-        "$(${pkgs.gawk}/bin/awk '{print $2}' <<<"$line")"
-      )
+    echo "==> $# generation(s) in NVRAM"
+
+    i=0
+    KEEP_TIMESTAMPS=
+    for line in "$@"; do
+        i=$((i + 1))
+        [ "$i" -le "${toString cfg.maxGenerations}" ] || break
+        ts=$(printf '%s\n' "$line" | ${lib.getExe' cfg.awk.package "awk"} '{print $2}')
+        KEEP_TIMESTAMPS="$KEEP_TIMESTAMPS
+    $ts"
     done
 
-    declare -A PRUNE_IDS
+    PRUNE_IDS=
+    if [ "$#" -gt "${toString cfg.maxGenerations}" ]; then
+        i=0
+        for line in "$@"; do
+            i=$((i + 1))
+            [ "$i" -gt "${toString cfg.maxGenerations}" ] || continue
+            id=$(printf '%s\n' "$line" | ${lib.getExe' cfg.awk.package "awk"} '{print $1}')
+            ts=$(printf '%s\n' "$line" | ${lib.getExe' cfg.awk.package "awk"} '{print $2}')
 
-    if [ "''${#GENERATIONS[@]}" -gt "${toString cfg.maxGenerations}" ]; then
-      for line in "''${GENERATIONS[@]:${toString cfg.maxGenerations}}"; do
-        id=$(${pkgs.gawk}/bin/awk '{print $1}' <<<"$line")
-        ts=$(${pkgs.gawk}/bin/awk '{print $2}' <<<"$line")
-
-        "$EFISTUBMGR" delete "$id"
-        PRUNE_IDS["$ts"]="$id"
-      done
+            "$EFISTUBMGR" delete "$id"
+            PRUNE_IDS="$PRUNE_IDS
+    $ts $id"
+        done
     fi
 
     # ── Remove orphaned ESP files ─────────────────────────────────────────────
 
-    ORPHAN_TIMESTAMPS=()
+    ORPHAN_TIMESTAMPS=
 
     for f in "${cfg.bootDir}"/kernel-*.efi "${cfg.bootDir}"/initrd-*; do
       [ -e "$f" ] || continue
@@ -147,18 +146,22 @@ let
 
       if ! is_kept_timestamp "$file_ts" &&
          ! is_seen_timestamp "$file_ts"; then
-        ORPHAN_TIMESTAMPS+=("$file_ts")
+         ORPHAN_TIMESTAMPS=$(printf '%s\n%s' "$ORPHAN_TIMESTAMPS" "$file_ts")
       fi
     done
+    prune_id_for_ts() {
+      printf '%s\n' "$PRUNE_IDS" | awk -v ts="$1" '$1 == ts { print $2; exit }'
+    }
 
-    for ts in "''${ORPHAN_TIMESTAMPS[@]}"; do
-      if [ -n "''${PRUNE_IDS[$ts]:-}" ]; then
+    for ts in $ORPHAN_TIMESTAMPS; do
+      prune_id=$(prune_id_for_ts "$ts")
+      if [ -n "$prune_id" ]; then
         echo "==> Removing orphaned ESP files kernel-$ts.efi + initrd-$ts" \
-          "(ts $ts, removed matching Boot''${PRUNE_IDS[$ts]} NVRAM entry)"
-      else
-        echo "==> Removing orphaned ESP files kernel-$ts.efi + initrd-$ts" \
-          "(ts $ts, no matching NVRAM entry)"
-      fi
+        "(timestamp $ts, removed matching Boot$prune_id NVRAM entry)"
+    else
+      echo "==> Removing orphaned ESP files kernel-$ts.efi + initrd-$ts" \
+      "(timestamp $ts, no matching NVRAM entry)"
+    fi
 
       rm -f "${cfg.bootDir}/kernel-$ts.efi" "${cfg.bootDir}/initrd-$ts"
     done
@@ -214,7 +217,7 @@ in
     };
     bootEntry = lib.mkOption {
       type = lib.types.str;
-      default = ''$LABEL''${REV:+ $REV} * $(${pkgs.coreutils}/bin/date -d "@$TIMESTAMP" '+%Y-%m-%d %H:%M:%S %Z')'';
+      default = ''$LABEL''${REV:+ $REV} * $(${lib.getExe' config.programs.coreutils.package "date"} -d "@$TIMESTAMP" '+%Y-%m-%d %H:%M:%S %Z')'';
       description = "How each generation appears in the UEFI boot picker, REV and LABEL are provided as is in the install script. Non ASCII characters may stop it from appearing in the Boot Options";
     };
 
@@ -223,6 +226,14 @@ in
       default = "$1/boot.json";
       description = ''
         Path to a boot specification, best to leave as default unless you know what you are doing
+      '';
+    };
+    awk.package = lib.mkOption {
+      type = lib.types.package;
+      default = config.programs.coreutils.package;
+      defaultText = lib.literalExpression "config.programs.coreutils.package";
+      description = ''
+        The package to use for awk
       '';
     };
   };
