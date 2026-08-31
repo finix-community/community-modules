@@ -2,10 +2,10 @@
 # server program it was configured with.
 {
   machine =
-    { pkgs, ... }:
+    { modules, pkgs, ... }:
     {
-      services.mdevd.enable = true;
-
+      imports = [ modules.sysklogd ];
+      services.sysklogd.enable = true;
       services.xinetd.enable = true;
       services.xinetd.services = [
         {
