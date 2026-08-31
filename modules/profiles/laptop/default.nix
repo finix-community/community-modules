@@ -163,6 +163,7 @@ in
     services.sysklogd.enable = true;
     services.udisks2.enable = lib.mkDefault config.services.udev.enable;
     services.upower.enable = lib.mkDefault true;
+    services.getty.enable = lib.mkDefault true;
 
     # https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes#Simple_IP/IPv6_Firewall
     services.nftables.configFile = pkgs.writeText "nftables.conf" ''
