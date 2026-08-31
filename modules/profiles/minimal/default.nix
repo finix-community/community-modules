@@ -58,6 +58,7 @@ in
     programs.bash.enable = true;
 
     services.dhcpcd.enable = true;
+    services.getty.enable = true;
 
     services.nix-daemon.enable = true;
     services.nix-daemon.settings = {
