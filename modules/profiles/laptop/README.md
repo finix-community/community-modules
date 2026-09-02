@@ -43,6 +43,10 @@ A minimal `configuration.nix` to put alongside the flake snippet above:
     ./hardware-configuration.nix
   ];
 
+  profiles.laptop.enable = true;
+  profiles.laptop.hardwareSupport = "minimal";
+  profiles.laptop.user = "lennart";
+
   networking.hostName = "mylaptop";
 
   programs.niri.enable = true;
@@ -53,12 +57,6 @@ A minimal `configuration.nix` to put alongside the flake snippet above:
   ];
 
   users.users.lennart = {
-    isNormalUser = true;
-    extraGroups =
-      [ "wheel" "video" "audio" ]
-      ++ lib.optionals config.services.networkmanager.enable [ "networkmanager" ]
-      ++ lib.optionals config.services.seatd.enable [ config.services.seatd.group ];
-
     # finix has no plaintext passwords; `password` is the hashed form which you can generate with `mkpasswd`
     password = "$6$...";
   };
@@ -87,32 +85,38 @@ The output assumes nixos, so review it and strip out anything that references mo
 
 ## Picking a stack
 
-Two parallel stacks, switched by device manager:
+Three supported stacks, switched by device manager:
 
 | | device mgr | seat mgr | wifi |
 |---|---|---|---|
-| `"standard"` | `udev` | `elogind` | `NetworkManager` |
-| `"minimal"` | `mdevd` | `seatd` | `iwd` |
+| `full` | `gardendevd` | `elogind` | `NetworkManager` |
+| `standard` | `keventd` | `seatd` | `iwd` |
+| `minimal` | `mdevd` | `seatd` | `iwd` |
 
 Flip with:
 
 ```nix
+profiles.laptop.hardwareSupport = "full";
 profiles.laptop.hardwareSupport = "standard";
 profiles.laptop.hardwareSupport = "minimal"
 ```
 
 Assertions enforce no cross-mixing. With `seatd`, the profile also wires up `providers.privileges.rules` for `poweroff`/`reboot`/`zzz` and adds the `seatd` group to `rtkit` + `power-profiles-daemon`.
 
-Pick `udev` (default) if you want:
+Pick `gardendevd` (default) if you want:
 
 - maximum hardware compatibility
 - to use `NetworkManager` (GUI applets, VPN plugins, captive-portal handling)
 - the least surprise - matches the rest of the nixos ecosystem
 - `elogind` to handle session/seat management, suspend-on-lid, power button, etc. for free
 
+Pick `keventd` if you want:
+
+- `udev` compatible rule engine
+- a `finit` native device manager that integrates with your service manager
+
 Pick `mdevd` if you want:
 
-- to avoid pulling in any of the `systemd` codebase (`eudev` is a fork of the `systemd` component)
 - a smaller, faster device manager - `mdevd` is from the skarnet/`s6` family
 - to stay close to a minimalist system
 - `iwd`'s lighter-weight wifi management instead of `NetworkManager`
