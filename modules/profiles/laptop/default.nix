@@ -93,6 +93,8 @@ in
       "cpu.weight" = 100;
     };
 
+    finit.tmpfiles.clean.enable = true;
+
     environment.systemPackages = [
       pkgs.nixos-rebuild-ng
     ];
