@@ -2,6 +2,7 @@
   lib,
   pkgs,
   config,
+  osConfig,
   ...
 }:
 let
@@ -30,7 +31,11 @@ in
 
     package = lib.mkOption {
       type = types.package;
-      default = pkgs.noctalia;
+      default = pkgs.noctalia.override (
+        lib.optionalAttrs osConfig.services.polkit.enable {
+          polkit = osConfig.services.polkit.package;
+        }
+      );
       description = "Noctalia package to install and run.";
     };
 
