@@ -43,6 +43,9 @@ A minimal `configuration.nix` to put alongside the flake snippet above:
     ./hardware-configuration.nix
   ];
 
+  profiles.laptop.enable = true;
+  profiles.laptop.user = "someone";
+
   networking.hostName = "mylaptop";
 
   programs.niri.enable = true;
@@ -53,12 +56,6 @@ A minimal `configuration.nix` to put alongside the flake snippet above:
   ];
 
   users.users.lennart = {
-    isNormalUser = true;
-    extraGroups =
-      [ "wheel" "video" "audio" ]
-      ++ lib.optionals config.services.networkmanager.enable [ "networkmanager" ]
-      ++ lib.optionals config.services.seatd.enable [ config.services.seatd.group ];
-
     # finix has no plaintext passwords; `password` is the hashed form which you can generate with `mkpasswd`
     password = "$6$...";
   };
@@ -85,25 +82,35 @@ The output assumes nixos, so review it and strip out anything that references mo
 - system: `chrony`, `sysklogd`, `fcron`, `earlyoom`, `nix-daemon`, `nixos-rebuild-ng`
 - editor: `nano` (default; override with another `programs.<editor>.enable`)
 
-## Picking a stack
+## Choosing device and network managers
 
-Two parallel stacks, switched by device manager:
+The profile defaults to lightweight managers and derives its defaults from the services you enable. 
+No profile-specific hardware enum is required:
 
 | | device mgr | seat mgr | wifi |
 |---|---|---|---|
-| `"standard"` | `udev` | `elogind` | `NetworkManager` |
-| `"minimal"` | `mdevd` | `seatd` | `iwd` |
+| default | `keventd` | `seatd` | `iwd` |
+| explicit `services.mdevd.enable` | `mdevd` | `seatd` | `iwd` |
+| explicit `services.gardendevd.enable` | `gardendevd` | `elogind` | `iwd` |
+| explicit `services.udev.enable` | `udev` | `elogind` | `iwd` |
 
-Flip with:
+For example, to use the full udev-compatible stack and NetworkManager:
 
 ```nix
-profiles.laptop.hardwareSupport = "standard";
-profiles.laptop.hardwareSupport = "minimal"
+services.udev.enable = true;
+services.networkmanager.enable = true;
 ```
 
-Assertions enforce no cross-mixing. With `seatd`, the profile also wires up `providers.privileges.rules` for `poweroff`/`reboot`/`zzz` and adds the `seatd` group to `rtkit` + `power-profiles-daemon`.
+The profile requires exactly one device manager and exactly one of `iwd` and NetworkManager. 
+With `seatd`, it wires up `providers.privileges.rules` for `poweroff`/`reboot`/`zzz` and 
+adds the `seatd` group to the primary user, `rtkit`, and `power-profiles-daemon`.
 
-Pick `udev` (default) if you want:
+Pick `keventd` (default) if you want:
+
+- a small, finit-native device manager
+- udev-compatible rules without enabling eudev
+
+Pick `udev` or `gardendevd` if you want:
 
 - maximum hardware compatibility
 - to use `NetworkManager` (GUI applets, VPN plugins, captive-portal handling)
@@ -112,10 +119,13 @@ Pick `udev` (default) if you want:
 
 Pick `mdevd` if you want:
 
-- to avoid pulling in any of the `systemd` codebase (`eudev` is a fork of the `systemd` component)
 - a smaller, faster device manager - `mdevd` is from the skarnet/`s6` family
 - to stay close to a minimalist system
 - `iwd`'s lighter-weight wifi management instead of `NetworkManager`
+
+NetworkManager can be selected explicitly with `services.networkmanager.enable = true;`, 
+the profile then disables its default `iwd` selection. 
+NetworkManager still needs `udev` or `gardendevd` because of its udev integration.
 
 ## Overriding
 
