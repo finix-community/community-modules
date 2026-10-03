@@ -31,6 +31,7 @@ in
     power-profiles-daemon
     regreet
     rtkit
+    sessiond-uaccess
     sudo
     sysklogd
     udisks2
@@ -94,6 +95,10 @@ in
         assertion = !(config.services.iwd.enable && config.services.networkmanager.enable);
         message = "The laptop profile requires exactly one network manager: iwd or NetworkManager.";
       }
+      {
+        assertion = !(config.services.elogind.enable && config.services.sessiond.enable);
+        message = "Choose one session manager: elogind or sessiond.";
+      }
     ];
 
     boot.kernelParams = [
@@ -146,11 +151,13 @@ in
     # mdevd needs to rebroadcast events for libudev-zero consumers such as the graphical stack
     services.mdevd.nlgroups = lib.mkIf config.services.mdevd.enable (lib.mkDefault 4);
 
-    services.elogind.enable = lib.mkDefault (
-      config.services.udev.enable || config.services.gardendevd.enable
+    services.elogind.enable = lib.mkDefault false;
+    services.seatd.enable = lib.mkDefault (!config.services.elogind.enable);
+    services.sessiond.enable = lib.mkDefault (
+      !config.services.mdevd.enable && !config.services.elogind.enable
     );
-    services.seatd.enable = lib.mkDefault (
-      config.services.keventd.enable || config.services.mdevd.enable
+    services.sessiond-uaccess.enable = lib.mkDefault (
+      !config.services.mdevd.enable && !config.services.elogind.enable
     );
 
     services.iwd.enable = lib.mkDefault (!config.services.networkmanager.enable);

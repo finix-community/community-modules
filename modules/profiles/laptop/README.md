@@ -73,7 +73,7 @@ The output assumes nixos, so review it and strip out anything that references mo
 ## What's included
 
 - boot/init: `finit` (runlevel 3), `limine`, `plymouth` splash screen
-- session: `greetd` + `regreet`, `dbus`, `polkit`, `sudo`, `rtkit`, `xdg` (autostart/icons/mime/portal)
+- session: `greetd` + `regreet`, `sessiond` + `sessiond-uaccess`, `dbus`, `polkit`, `sudo`, `rtkit`, `xdg` (autostart/icons/mime/portal)
 - audio: `pipewire` + `wireplumber`, `@audio` rtprio/nice/memlock limits
 - graphics: `hardware.graphics`, `fontconfig` + default fonts
 - firmware: `linux-firmware`, `sof-firmware`, `wireless-regdb`
@@ -87,12 +87,12 @@ The output assumes nixos, so review it and strip out anything that references mo
 The profile defaults to lightweight managers and derives its defaults from the services you enable. 
 No profile-specific hardware enum is required:
 
-| | device mgr | seat mgr | wifi |
-|---|---|---|---|
-| default | `keventd` | `seatd` | `iwd` |
-| explicit `services.mdevd.enable` | `mdevd` | `seatd` | `iwd` |
-| explicit `services.gardendevd.enable` | `gardendevd` | `elogind` | `iwd` |
-| explicit `services.udev.enable` | `udev` | `elogind` | `iwd` |
+| | device mgr | seat mgr | session mgr | wifi |
+|---|---|---|---|---|
+| default | `keventd` | `seatd` | `sessiond` | `iwd` |
+| explicit `services.mdevd.enable` | `mdevd` | `seatd` | - | `iwd` |
+| explicit `services.gardendevd.enable` | `gardendevd` | `seatd` | `sessiond` | `iwd` |
+| explicit `services.udev.enable` | `udev` | `seatd` | `sessiond` | `iwd` |
 
 For example, to use the full udev-compatible stack and NetworkManager:
 
@@ -101,9 +101,13 @@ services.udev.enable = true;
 services.networkmanager.enable = true;
 ```
 
-The profile requires exactly one device manager and exactly one of `iwd` and NetworkManager. 
-With `seatd`, it wires up `providers.privileges.rules` for `poweroff`/`reboot`/`zzz` and 
+The profile requires exactly one device manager and exactly one of `iwd` and NetworkManager.
+`sessiond` and `sessiond-uaccess` are enabled by default for the `keventd`, `udev`, and `gardendevd` stacks. With `seatd`, it wires up `providers.privileges.rules` for `poweroff`/`reboot`/`zzz` and
 adds the `seatd` group to the primary user, `rtkit`, and `power-profiles-daemon`.
+
+`elogind` remains available as an explicit alternative to `sessiond`; enable it
+when using `udev` or `gardendevd` and disable `services.sessiond` and
+`services.sessiond-uaccess` if you do not want both session stacks.
 
 Pick `keventd` (default) if you want:
 
@@ -115,7 +119,7 @@ Pick `udev` or `gardendevd` if you want:
 - maximum hardware compatibility
 - to use `NetworkManager` (GUI applets, VPN plugins, captive-portal handling)
 - the least surprise - matches the rest of the nixos ecosystem
-- `elogind` to handle session/seat management, suspend-on-lid, power button, etc. for free
+- `sessiond` + `sessiond-uaccess` for session power actions and device access
 
 Pick `mdevd` if you want:
 
