@@ -32,8 +32,8 @@ let
         case "$(readlink "$link")" in
           "$target"|"$path")
             printf '%s\n' "$link" |
-              ${lib.getExe' config.programs.coreutils.package "grep"} -oE 'system-[0-9]+-link' |
-              ${lib.getExe' config.programs.coreutils.package "grep"} -oE '[0-9]+' |
+              ${lib.getExe' cfg.grep.package "grep"} -oE 'system-[0-9]+-link' |
+              ${lib.getExe' cfg.grep.package "grep"} -oE '[0-9]+' |
               ${lib.getExe' cfg.awk.package "awk"} '{print "rev. " $1}'
             return
             ;;
@@ -42,11 +42,11 @@ let
     }
 
     is_kept_timestamp() {
-      printf '%s\n' "$KEEP_TIMESTAMPS" | grep -Fxq "$1"
+      printf '%s\n' "$KEEP_TIMESTAMPS" | ${lib.getExe' cfg.grep.package "grep"} -Fxq "$1"
     }
 
     is_seen_timestamp() {
-      printf '%s\n' "$ORPHAN_TIMESTAMPS" | grep -Fxq "$1"
+      printf '%s\n' "$ORPHAN_TIMESTAMPS" | ${lib.getExe' cfg.grep.package "grep"} -Fxq "$1"
     }
 
     # ── Validate & read bootspec ──────────────────────────────────────────────
@@ -92,7 +92,7 @@ let
     ESP_KERNEL_PATH="\\''${ESP_REL_DIR_WIN}\\kernel-$TIMESTAMP.efi"
     ESP_INITRD_PATH="\\''${ESP_REL_DIR_WIN}\\initrd-$TIMESTAMP"
     NEW_ID=$("$EFISTUBMGR" create "${cfg.efiMountPoint}" \
-      '\EFI\finix\kernel-'"$TIMESTAMP"'.efi' \
+      "$ESP_KERNEL_PATH" \
       "$DESCRIPTION" \
       "initrd=$ESP_INITRD_PATH init=$INIT $PARAMS" \
       --timestamp "$TIMESTAMP")
@@ -150,7 +150,7 @@ let
       fi
     done
     prune_id_for_ts() {
-      printf '%s\n' "$PRUNE_IDS" | awk -v ts="$1" '$1 == ts { print $2; exit }'
+      printf '%s\n' "$PRUNE_IDS" | ${lib.getExe' cfg.awk.package "awk"} -v ts="$1" '$1 == ts { print $2; exit }'
     }
 
     for ts in $ORPHAN_TIMESTAMPS; do
@@ -230,20 +230,26 @@ in
     };
     awk.package = lib.mkOption {
       type = lib.types.package;
-      default = config.programs.coreutils.package;
-      defaultText = lib.literalExpression "config.programs.coreutils.package";
+      default = pkgs.gawk;
+      defaultText = lib.literalExpression "pkgs.gawk";
       description = ''
         The package to use for awk
       '';
     };
-  };
-  config = {
-    environment = lib.mkIf cfg.enable {
-      systemPackages = [
-        cfg.package
-        pkgs.jq
-      ];
+    grep.package = lib.mkOption {
+      type = lib.types.package;
+      default = pkgs.gnugrep;
+      defaultText = lib.literalExpression "pkgs.gnugrep";
+      description = ''
+        The package to use for grep
+      '';
     };
+  };
+  config = lib.mkIf cfg.enable {
+    environment.systemPackages = [
+      cfg.package
+      pkgs.jq
+    ];
     boot.loader.script = {
       enable = true;
       installHook = efistubHook;
