@@ -92,7 +92,7 @@ let
     ESP_KERNEL_PATH="\\''${ESP_REL_DIR_WIN}\\kernel-$TIMESTAMP.efi"
     ESP_INITRD_PATH="\\''${ESP_REL_DIR_WIN}\\initrd-$TIMESTAMP"
     NEW_ID=$("$EFISTUBMGR" create "${cfg.efiMountPoint}" \
-      '\EFI\finix\kernel-'"$TIMESTAMP"'.efi' \
+      "$ESP_KERNEL_PATH" \
       "$DESCRIPTION" \
       "initrd=$ESP_INITRD_PATH init=$INIT $PARAMS" \
       --timestamp "$TIMESTAMP")
