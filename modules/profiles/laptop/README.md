@@ -1,6 +1,6 @@
 # `laptop` profile
 
-An opinionated `finix` profile for a personal laptop. Covers the plumbing (init, audio, networking, power, login greeter, ...) so you can focus on the bits that vary per machine.
+A configurable `finix` starting point for a personal laptop. Provides defaults for init, audio, networking, power and login without requiring a fixed stack.
 
 ## Usage
 
@@ -55,7 +55,7 @@ A minimal `configuration.nix` to put alongside the flake snippet above:
     fuzzel      # launcher
   ];
 
-  users.users.lennart = {
+  users.users.someone = {
     # finix has no plaintext passwords; `password` is the hashed form which you can generate with `mkpasswd`
     password = "$6$...";
   };
@@ -80,7 +80,7 @@ The output assumes nixos, so review it and strip out anything that references mo
 - networking: `nftables` firewall (drop input; allow established, lo, icmp, ssh:22)
 - power/hardware: `upower`, `power-profiles-daemon`, `brightnessctl`, `bluetooth`, `zzz`
 - system: `chrony`, `sysklogd`, `fcron`, `earlyoom`, `nix-daemon`, `nixos-rebuild-ng`
-- editor: `nano` (default; override with another `programs.<editor>.enable`)
+- editor: `nano` (disable it when choosing another editor)
 
 ## Choosing device and network managers
 
@@ -101,15 +101,17 @@ services.udev.enable = true;
 services.networkmanager.enable = true;
 ```
 
-The profile requires exactly one device manager and exactly one of `iwd` and NetworkManager.
+The table describes defaults, not mandatory combinations. The profile warns about potentially conflicting managers instead of rejecting custom stacks.
+Core module constraints still apply; some device managers conflict when enabled together.
 `sessiond` and `sessiond-uaccess` are enabled by default for the `keventd`, `udev`, and `gardendevd` stacks.
 When neither `elogind` nor `sessiond` is enabled, the profile adds the legacy `seatd` privilege rules for `poweroff`/`reboot`/`zzz` and 
 grants the required hardware groups. 
 The `seatd` group is still added when `seatd` is enabled so compositors can access its socket.
 
-`elogind` remains available as an explicit alternative to `sessiond`; enable it
-when using `udev` or `gardendevd` and disable `services.sessiond` and
-`services.sessiond-uaccess` if you do not want both session stacks.
+Enabling `elogind` disables the profile's default `sessiond` and `seatd` selection. 
+`sessiond-uaccess` follows `services.sessiond.enable`, it can also
+be disabled independently. 
+Both can be enabled explicitly on a custom stack, including `mdevd`.
 
 Pick `keventd` (default) if you want:
 
@@ -131,13 +133,38 @@ Pick `mdevd` if you want:
 
 NetworkManager can be selected explicitly with `services.networkmanager.enable = true;`, 
 the profile then disables its default `iwd` selection. 
-NetworkManager still needs `udev` or `gardendevd` because of its udev integration.
+NetworkManager is normally paired with `udev` or `gardendevd` because of its
+udev integration. For a custom backend, check package support and runtime behavior.
 
 ## Overriding
 
-Most options use `lib.mkDefault`, so disable anything you don't want:
+Profile service choices and scalar settings use `lib.mkDefault`. Normal definitions override them without `mkForce`:
 
 ```nix
 services.bluetooth.enable = false;
+programs.limine.enable = false; # bring your own bootloader
+programs.regreet.enable = false; # bring your own login manager
+programs.wireplumber.enable = false;
+programs.pipewire.enable = false;
+programs.nano.enable = false;
 programs.zzz.enable = false;
+finit.runlevel = 2;
+providers.firewall.allowedTCPPorts = [];
+profiles.laptop.packages = []; # omit nixos-rebuild-ng, retain core packages
+users.users.someone.extraGroups = [ "wheel" ]; # replace suggested groups
 ```
+
+List defaults (firmware, ports, user groups and earlyoom arguments) are replaced by a normal definition. 
+To extend one, repeat the wanted defaults in your list.
+Privilege rules remain additive to preserve rules from other modules, use `lib.mkForce` to replace the complete list, accounting for those modules too.
+Kernel parameters also merge: an explicit `loglevel` follows the profile's quiet-boot default. 
+Use `lib.mkForce` only to replace the whole kernel-parameter list.
+
+Disabling a dependency may require disabling its consumers: core enables
+PipeWire for WirePlumber, greetd for ReGreet, and D-Bus/polkit for sessiond.
+Core also requires at least one TTY; when disabling getty, provide your own `finit.ttys`. 
+Logging-dependent services need a `syslogd` readiness condition from the chosen logging setup. 
+Disabling a profile default does not implement its replacement or remove these core requirements.
+
+Temporary-file cleaning follows the selected scheduler backend; disabling fcron
+does not require disabling cleaning if another scheduler is configured.
