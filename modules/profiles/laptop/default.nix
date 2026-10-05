@@ -7,6 +7,8 @@
 }:
 let
   cfg = config.profiles.laptop;
+  hasSessionManager = config.services.elogind.enable || config.services.sessiond.enable;
+  needsSeatdPrivileges = config.services.seatd.enable && !hasSessionManager;
 in
 {
   imports = with modules; [
@@ -184,11 +186,11 @@ in
     services.nix-daemon.enable = true;
     services.polkit.enable = true;
     services.power-profiles-daemon.enable = lib.mkDefault true;
-    services.power-profiles-daemon.extraGroups = lib.optionals config.services.seatd.enable [
+    services.power-profiles-daemon.extraGroups = lib.optionals needsSeatdPrivileges [
       config.services.seatd.group
     ];
     services.rtkit.enable = lib.mkDefault true;
-    services.rtkit.extraGroups = lib.optionals config.services.seatd.enable [
+    services.rtkit.extraGroups = lib.optionals needsSeatdPrivileges [
       config.services.seatd.group
     ];
     services.sysklogd.enable = true;
@@ -210,7 +212,7 @@ in
       ${cfg.user} = {
         isNormalUser = lib.mkDefault true;
         extraGroups = lib.mkAfter (
-          [
+          lib.optionals (!hasSessionManager) [
             "audio"
             "input"
             "video"
@@ -223,7 +225,7 @@ in
     };
 
     providers.privileges.rules =
-      lib.optionals config.services.seatd.enable [
+      lib.optionals needsSeatdPrivileges [
         {
           command = "/run/current-system/sw/bin/poweroff";
           groups = [ config.services.seatd.group ];
@@ -235,7 +237,7 @@ in
           requirePassword = false;
         }
       ]
-      ++ lib.optionals (config.services.seatd.enable && config.programs.zzz.enable) [
+      ++ lib.optionals (needsSeatdPrivileges && config.programs.zzz.enable) [
         {
           command = "/run/current-system/sw/bin/zzz";
           groups = [ config.services.seatd.group ];

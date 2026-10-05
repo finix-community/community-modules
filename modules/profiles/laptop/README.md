@@ -102,8 +102,10 @@ services.networkmanager.enable = true;
 ```
 
 The profile requires exactly one device manager and exactly one of `iwd` and NetworkManager.
-`sessiond` and `sessiond-uaccess` are enabled by default for the `keventd`, `udev`, and `gardendevd` stacks. With `seatd`, it wires up `providers.privileges.rules` for `poweroff`/`reboot`/`zzz` and
-adds the `seatd` group to the primary user, `rtkit`, and `power-profiles-daemon`.
+`sessiond` and `sessiond-uaccess` are enabled by default for the `keventd`, `udev`, and `gardendevd` stacks.
+When neither `elogind` nor `sessiond` is enabled, the profile adds the legacy `seatd` privilege rules for `poweroff`/`reboot`/`zzz` and 
+grants the required hardware groups. 
+The `seatd` group is still added when `seatd` is enabled so compositors can access its socket.
 
 `elogind` remains available as an explicit alternative to `sessiond`; enable it
 when using `udev` or `gardendevd` and disable `services.sessiond` and
