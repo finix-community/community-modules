@@ -1,6 +1,16 @@
 {
   "version": "1",
   "sources": {
+    "finix": {
+      "type": "GitHub",
+      "fetchType": "tarball",
+      "owner": "finix-community",
+      "repo": "finix",
+      "branch": "main",
+      "revision": "78fd549fa5410ad1e5683efbba2d0f1728c12f3d",
+      "url": "https://github.com/finix-community/finix/archive/78fd549fa5410ad1e5683efbba2d0f1728c12f3d.tar.gz",
+      "hash": "sha256-mU5vhbdK8uBO1Cgc7pxUo5OadG2mb+TbU1mFhylEZz4="
+    },
     "nixpkgs": {
       "type": "GitHub",
       "fetchType": "tarball",

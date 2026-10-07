@@ -1,0 +1,219 @@
+# turns one run of the suite into the compatibility table
+#
+# the table has to remember: once a module stops working against finix main,
+# the interesting fact is the last commit it *did* work for, and that is not
+# something the current run can know. so the previous state file is merged
+# forward - a module that passes gets its `lastGood` moved to the commit just
+# checked, and a module that fails keeps whatever it had.
+#
+#   nix-build ci/report.nix \
+#     --arg finix ./.ci/finix \
+#     --arg manifest ./.ci/run/manifest.json \
+#     --arg results ./.ci/run/results.json \
+#     --arg state ./.ci/compat-state.json \
+#     --argstr rev "$rev" --argstr revDate "$date" --argstr checkedAt "$now"
+#
+# writes $out/compat-state.json and $out/COMPATIBILITY.md.
+{
+  finix,
+  manifest,
+  results,
+  # the previous state file, or null on the very first run
+  state ? null,
+
+  # the finix commit that was checked, its commit date, and when we checked
+  rev,
+  revDate,
+  checkedAt,
+
+  system ? builtins.currentSystem,
+  pkgs ? import (import (finix + "/lon.nix")).nixpkgs { inherit system; },
+}:
+let
+  inherit (pkgs) lib;
+
+  modulePaths = import ../modules;
+
+  commitUrl = "https://github.com/finix-community/finix/commit";
+
+  manifestData = builtins.fromJSON (builtins.readFile manifest);
+  resultsData = builtins.fromJSON (builtins.readFile results);
+  previous =
+    if state == null then { modules = { }; } else builtins.fromJSON (builtins.readFile state);
+
+  checkedNow = {
+    inherit rev checkedAt;
+    date = revDate;
+    inherit (resultsData) system;
+  };
+
+  modules = lib.sort (a: b: a < b) (lib.unique (map (e: e.module) manifestData));
+
+  # which `modules/<kind>` directory a module's path came from - "other" is a
+  # catch-all so a module placed outside programs/services/profiles (like
+  # dinit) still shows up somewhere, rather than quietly dropping off the
+  # table.
+  categories = [
+    "programs"
+    "services"
+    "profiles"
+    "other"
+  ];
+
+  categoryDirs = {
+    programs = toString ../modules/programs + "/";
+    services = toString ../modules/services + "/";
+    profiles = toString ../modules/profiles + "/";
+  };
+
+  categoryOf =
+    module:
+    let
+      path = toString modulePaths.${module};
+      matches = lib.filter (cat: lib.hasPrefix categoryDirs.${cat} path) [
+        "programs"
+        "services"
+        "profiles"
+      ];
+    in
+    if matches == [ ] then "other" else lib.head matches;
+
+  modulesByCategory = lib.genAttrs categories (cat: lib.filter (m: categoryOf m == cat) modules);
+
+  entriesFor = module: lib.filter (e: e.module == module) manifestData;
+  resultsFor = module: lib.filter (r: r.module == module) resultsData.results;
+
+  # "eval" or "eval + vm" - how deeply this module was actually checked. taken
+  # from the results rather than the manifest, so a run that skipped the vm
+  # half does not claim to have booted anything.
+  depthOf =
+    module:
+    let
+      kinds = lib.unique (map (r: r.kind) (resultsFor module));
+    in
+    lib.concatStringsSep " + " (
+      lib.filter (k: builtins.elem k kinds) [
+        "eval"
+        "vm"
+      ]
+    );
+
+  # why something was not booted, taken from the `note` in its test file. only
+  # eval-only tests count: a module can have one test booted in a vm and
+  # another that cannot be, and only the second owes an explanation.
+  notesOf =
+    module:
+    map (e: "${e.test} - ${cell e.note}") (
+      lib.filter (e: e.note != "" && !(builtins.elem "vm" e.kinds)) (entriesFor module)
+    );
+
+  failuresOf = module: map (r: "${r.test}:${r.kind}") (lib.filter (r: !r.ok) (resultsFor module));
+
+  passed = module: resultsFor module != [ ] && lib.all (r: r.ok) (resultsFor module);
+
+  entryFor =
+    module:
+    let
+      before = previous.modules.${module} or { };
+      ok = passed module;
+    in
+    {
+      status = if ok then "passing" else "failing";
+      checks = depthOf module;
+      lastChecked = checkedNow;
+      # the whole point of the file: a failing module keeps pointing at the
+      # last finix commit it was known good for.
+      lastGood = if ok then checkedNow else (before.lastGood or null);
+      failures = failuresOf module;
+    };
+
+  newState = {
+    version = 1;
+    modules = lib.genAttrs modules entryFor;
+  };
+
+  # markdown -------------------------------------------------------------
+
+  cell = s: lib.replaceStrings [ "|" "\n" ] [ "\\|" " " ] s;
+
+  link = r: "[`${builtins.substring 0 7 r}`](${commitUrl}/${r})";
+
+  row =
+    module:
+    let
+      e = newState.modules.${module};
+      good = e.lastGood;
+    in
+    "| `${module}` | ${e.checks} | ${if e.status == "passing" then "working" else "**broken**"} | "
+    + (if good == null then "never seen working" else link good.rev)
+    + " | "
+    + (if good == null then "–" else good.date)
+    + " |";
+
+  notBooted = lib.filter (m: notesOf m != [ ]) modules;
+
+  broken = lib.filter (m: newState.modules.${m}.status == "failing") modules;
+
+  tableFor = mods: ''
+    | module | checked | status | last finix commit it worked with | that commit |
+    | --- | --- | --- | --- | --- |
+    ${lib.concatMapStringsSep "\n" row mods}
+  '';
+
+  sectionFor =
+    cat:
+    lib.optionalString (modulesByCategory.${cat} != [ ]) ''
+      ## ${cat}
+
+      ${tableFor modulesByCategory.${cat}}
+    '';
+
+  markdown = ''
+    # module compatibility
+
+    <!-- generated by ci/report.nix - run `ci/run-suite.sh`, do not edit by hand -->
+
+    `finix` moves fast and the modules here are minimally maintained by design,
+    so this table records, per module, the last `finix` commit it was known to
+    work with. a module row that lags behind the commit at the top of this file
+    has fallen behind and needs a look.
+
+    - last checked against finix ${link rev} (${revDate})
+    - on `${resultsData.system}`, at ${checkedAt}
+
+    ${lib.concatMapStrings sectionFor categories}
+    `checked` says how far the suite got with a module. `eval` builds a finix
+    system with the module enabled and instantiates its closure, which catches
+    the option and api drift that breaks these modules in practice. `eval + vm`
+    also boots that system under qemu and asserts the module does its job.
+
+  ''
+  + lib.optionalString (broken != [ ]) ''
+    ## broken against the current finix
+
+    ${lib.concatMapStringsSep "\n" (
+      m:
+      "- `${m}` - failing: ${lib.concatStringsSep ", " newState.modules.${m}.failures}"
+      + (
+        let
+          g = newState.modules.${m}.lastGood;
+        in
+        if g == null then "" else " (last worked at ${link g.rev}, ${g.date})"
+      )
+    ) broken}
+
+  ''
+  + lib.optionalString (notBooted != [ ]) ''
+    ## what is not booted, and why
+
+    ${lib.concatMapStringsSep "\n" (
+      m: lib.concatMapStringsSep "\n" (note: "- `${m}` (${note})") (notesOf m)
+    ) notBooted}
+  '';
+in
+pkgs.runCommand "finix-compat-report" { } ''
+  mkdir -p $out
+  ${pkgs.jq}/bin/jq -S . < ${pkgs.writeText "compat-state.json" (builtins.toJSON newState)} \
+    > $out/compat-state.json
+  cp ${pkgs.writeText "COMPATIBILITY.md" markdown} $out/COMPATIBILITY.md
+''
