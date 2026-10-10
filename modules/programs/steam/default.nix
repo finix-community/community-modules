@@ -216,7 +216,22 @@ in
     };
 
     programs.steam.extraPackages = cfg.fontPackages;
-    programs.gamescope.enable = lib.mkDefault cfg.gamescopeSession.enable;
+    programs.gamescope = lib.mkIf cfg.gamescopeSession.enable {
+      enable = lib.mkDefault true;
+
+      package = lib.mkDefault (
+        pkgs.gamescope.override {
+          libinput = pkgs.libinput.override {
+            udev = config.programs.libudev.package;
+            wacomSupport = false;
+          };
+
+          wlroots_0_19 = pkgs.wlroots_0_19.override {
+            seatd = config.programs.libseat.package;
+          };
+        }
+      );
+    };
 
     services.dbus.enable = true;
 

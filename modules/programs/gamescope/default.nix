@@ -7,6 +7,21 @@
 let
   cfg = config.programs.gamescope;
 
+  udevApi =
+    if config.services.gardendevd.enable then
+      pkgs.libudev-garden
+    else if config.services.mdevd.enable || config.services.keventd.enable then
+      pkgs.libudev-zero
+    else
+      null;
+
+  libinput = pkgs.libinput.override (
+    lib.optionalAttrs (udevApi != null) {
+      udev = udevApi;
+      wacomSupport = false;
+    }
+  );
+
   gamescope =
     let
       wrapperArgs =
@@ -24,7 +39,21 @@ in
   options.programs.gamescope = {
     enable = lib.mkEnableOption "gamescope, the SteamOS session compositing window manager";
 
-    package = lib.mkPackageOption pkgs "gamescope" { };
+    package = lib.mkOption {
+      type = lib.types.package;
+      default = pkgs.gamescope.override (
+        o:
+        let
+          wlrootsAttr = lib.head (lib.filter (lib.hasPrefix "wlroots") (lib.attrNames o));
+        in
+        {
+          inherit libinput;
+          ${wlrootsAttr} = o.${wlrootsAttr}.override { inherit libinput; };
+        }
+      );
+      defaultText = lib.literalExpression "pkgs.gamescope";
+      description = "The Gamescope package to use.";
+    };
 
     capSysNice = lib.mkOption {
       type = lib.types.bool;
