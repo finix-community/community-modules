@@ -33,6 +33,15 @@ let
         passthru.providedSessions = [ "steam" ];
       });
 
+  # With STEAM_GAME_LAUNCH_SHELL set, steam runs `$STEAM_GAME_LAUNCH_SHELL "<command line>"`
+  # instead of `/bin/sh -c "<command line>"` - the `-c` is only added on the /bin/sh path,
+  # so the command line arrives as `$1` and the `-c` is supplied here.
+  gameLaunchShell = pkgs.writeShellScript "steam-game-launch-shell" ''
+    exec ${
+      lib.concatMapStringsSep " " (wrapper: lib.escapeShellArgs (lib.toList wrapper)) cfg.gameWrappers
+    } /bin/sh -c "$1"
+  '';
+
 in
 {
   imports = [ ../gamescope ];
@@ -65,6 +74,9 @@ in
             })
             // (lib.optionalAttrs cfg.extest.enable {
               LD_PRELOAD = "${pkgs.pkgsi686Linux.extest}/lib/libextest.so";
+            })
+            // (lib.optionalAttrs (cfg.gameWrappers != [ ]) {
+              STEAM_GAME_LAUNCH_SHELL = "${gameLaunchShell}";
             })
             // (prev.extraEnv or { });
           extraLibraries =
@@ -199,6 +211,27 @@ in
       Load the extest library into Steam, to translate X11 input events to
       uinput events (e.g. for using Steam Input on Wayland)
     '';
+
+    gameWrappers = lib.mkOption {
+      type = lib.types.listOf (lib.types.either lib.types.path (lib.types.nonEmptyListOf lib.types.str));
+      default = [ ];
+      example = lib.literalExpression ''
+        [
+          [ "''${lib.getExe pkgs.gamescope}" "-f" "--" ]
+          "''${pkgs.gamemode}/bin/gamemoderun"
+        ]
+      '';
+      description = ''
+        Programs every game is launched through, outermost first. Each entry is a
+        program, or a program and its arguments, and is given the rest of the chain
+        followed by the game's command line as its arguments, as with launch options'
+        `<wrapper> %command%` - so each must end in running `"$@"`, and should `exec` it.
+
+        The list is the same for every game; anything decided per game belongs inside a
+        script entry of its own. Entries set by different modules are ordered with
+        `lib.mkBefore`/`lib.mkAfter`.
+      '';
+    };
 
     protontricks = {
       enable = lib.mkEnableOption "protontricks, a simple wrapper for running Winetricks commands for Proton-enabled games";
