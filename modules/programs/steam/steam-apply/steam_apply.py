@@ -3,7 +3,8 @@
 
 steam-apply <apps.json>
 
-Ported from nixos-steam's steam-config-apply (https://github.com/parzivale/nixos-steam).
+Ported from nixos-steam's steam-config-apply (https://github.com/parzivale/nixos-steam). KeyValues, text and
+binary, are read and written by `vdf` (https://github.com/ValvePython/vdf).
 
 apps.json:
   {
@@ -24,7 +25,7 @@ Rules:
 * Does nothing while Steam is running (pid in ~/.steam/steam.pid alive): Steam rewrites these files on exit.
 * Only what is configured is written; everything else in each file is kept.
 * Keys are matched case-insensitively (KeyValues semantics); existing key spelling is kept.
-* Files are written atomically; the first time a file is modified a `.steam-apply.bak` copy is kept.
+* A file that does not parse is left alone. Files are written atomically; the first time a file is modified a `.steam-apply.bak` copy is kept.
 * A shortcut whose app ID changed (new exe path or name), or that is no longer configured, is removed together
   with its compatibility tool mapping and artwork. Shortcuts added in Steam itself are never touched.
 * Per-user files are written for every account under userdata/ that has logged in at least once.
@@ -34,6 +35,8 @@ Rules:
 """
 import json, os, sys, tempfile, zlib
 from shlex import quote
+
+import vdf
 
 STATE = '.steam-apply-managed.json'
 BAK = '.steam-apply.bak'
@@ -47,116 +50,36 @@ FILES = {
 }
 
 
-# ---------------------------------------------------------------- KeyValues text format
-def tokenize(s):
-    i, n = 0, len(s)
-    while i < n:
-        c = s[i]
-        if c in ' \t\r\n':
-            i += 1
-        elif s.startswith('//', i):
-            j = s.find('\n', i)
-            i = n if j < 0 else j + 1
-        elif c in '{}':
-            yield c
-            i += 1
-        elif c == '"':
-            i += 1
-            out = []
-            while i < n and s[i] != '"':
-                if s[i] == '\\' and i + 1 < n:
-                    out.append({'n': '\n', 't': '\t', '\\': '\\', '"': '"'}.get(s[i + 1], '\\' + s[i + 1]))
-                    i += 2
-                else:
-                    out.append(s[i])
-                    i += 1
-            i += 1
-            yield ('s', ''.join(out))
-        elif c == '[':  # conditional like [$WIN32]: ignore
-            j = s.find(']', i)
-            i = n if j < 0 else j + 1
-        else:
-            j = i
-            while j < n and s[j] not in ' \t\r\n{}"':
-                j += 1
-            yield ('s', s[i:j])
-            i = j
+# ---------------------------------------------------------------- KeyValues
+# Parsed with `vdf` into plain dicts, which keep the file's order. Steam matches keys case-insensitively, and `vdf`
+# does not, so lookups go through `find`, which also keeps whatever spelling the file already has.
+def find(d, key):
+    """The key of `d` that is `key` to Steam, or None."""
+    return next((k for k in d if k.lower() == key.lower()), None)
 
 
-def parse(s):
-    """Parse into nested lists of [key, value] pairs (value: str or list), preserving order and duplicates."""
-    toks = list(tokenize(s))
-    pos = 0
-
-    def block():
-        nonlocal pos
-        items = []
-        while pos < len(toks):
-            t = toks[pos]
-            if t == '}':
-                pos += 1
-                return items
-            if t == '{':  # stray brace
-                pos += 1
-                continue
-            key = t[1]
-            pos += 1
-            if pos >= len(toks):
-                break
-            v = toks[pos]
-            if v == '{':
-                pos += 1
-                items.append([key, block()])
-            elif v == '}':
-                items.append([key, ''])
-            else:
-                pos += 1
-                items.append([key, v[1]])
-        return items
-
-    return block()
-
-
-def esc(s):
-    return s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\t', '\\t')
-
-
-def dump(items, depth=0):
-    out = []
-    ind = '\t' * depth
-    for k, v in items:
-        if isinstance(v, list):
-            out.append(f'{ind}"{esc(k)}"\n{ind}{{\n{dump(v, depth + 1)}{ind}}}\n')
-        else:
-            out.append(f'{ind}"{esc(k)}"\t\t"{esc(v)}"\n')
-    return ''.join(out)
-
-
-def set_path(items, path, value):
+def set_path(d, path, value):
     """Set path to value (str); value None deletes the key (and its subtree) if present. Returns whether it changed."""
     for i, comp in enumerate(path):
         last = i == len(path) - 1
-        hit = next((kv for kv in items if kv[0].lower() == comp.lower()), None)
+        k = find(d, comp)
         if value is None:
-            if hit is None or (not last and not isinstance(hit[1], list)):
+            if k is None or (not last and not isinstance(d[k], dict)):
                 return False
             if last:
-                items.remove(hit)
+                del d[k]
                 return True
         elif last:
-            if hit is None:
-                items.append([comp, value])
-            elif hit[1] != value:
-                hit[1] = value
-            else:
+            if k is not None and d[k] == value:
                 return False
+            d[comp if k is None else k] = value
             return True
-        elif hit is None:
-            hit = [comp, []]
-            items.append(hit)
-        elif not isinstance(hit[1], list):
-            hit[1] = []
-        items = hit[1]
+        elif k is None:
+            k = comp
+            d[k] = {}
+        elif not isinstance(d[k], dict):
+            d[k] = {}
+        d = d[k]
     return False
 
 
@@ -186,23 +109,34 @@ def write_atomic(path, data):
     os.replace(tmp, path)
 
 
+def load_text(path):
+    """A text KeyValues file as a dict: {} when it is missing, None when it does not parse - such a file is left
+    alone rather than rewritten from whatever part of it could be read."""
+    try:
+        return vdf.loads(slurp(path))
+    except FileNotFoundError:
+        return {}
+    except SyntaxError as e:
+        print(f'steam-apply: not touching {path}, which does not parse: {e}', file=sys.stderr)
+        return None
+
+
 def apply_file(path, root_key, entries):
     """entries: [(path components, value or None)]. Missing files are created, unless there is only deleting to do."""
-    try:
-        items = parse(slurp(path))
-    except FileNotFoundError:
-        if all(v is None for _, v in entries):
-            return False
-        items = []
-    root = next((kv for kv in items if kv[0].lower() == root_key.lower() and isinstance(kv[1], list)), None)
-    if root is None:
-        root = [root_key, []]
-        items.append(root)
+    if not os.path.exists(path) and all(v is None for _, v in entries):
+        return False
+    items = load_text(path)
+    if items is None:
+        return False
+    k = find(items, root_key)
+    if k is None or not isinstance(items[k], dict):
+        k = k or root_key
+        items[k] = {}
     changed = False
     for comps, value in entries:
-        changed |= set_path(root[1], comps, value)
+        changed |= set_path(items[k], comps, value)
     if changed:
-        write_atomic(path, dump(items))
+        write_atomic(path, vdf.dumps(items, pretty=True))
     return changed
 
 
@@ -225,87 +159,54 @@ def split_path(path, appid):
     return [c for c in path.replace('<appid>', str(appid)).replace('\\', '/').split('/') if c]
 
 
-# ---------------------------------------------------------------- binary KeyValues (shortcuts.vdf)
-def bkv_parse(b, i=0):
-    """Parse a binary KeyValues map starting at i; returns (items, i) with items = [[key, value]]."""
-    items = []
-    while i < len(b):
-        t = b[i]; i += 1
-        if t == 0x08:
-            return items, i
-        e = b.index(b'\0', i); key = b[i:e].decode('utf-8', 'replace'); i = e + 1
-        if t == 0x00:
-            v, i = bkv_parse(b, i)
-        elif t == 0x01:
-            e = b.index(b'\0', i); v = b[i:e].decode('utf-8', 'replace'); i = e + 1
-        elif t == 0x02:
-            v = ('i32', int.from_bytes(b[i:i + 4], 'little', signed=True)); i += 4
-        elif t == 0x07:
-            v = ('u64', int.from_bytes(b[i:i + 8], 'little')); i += 8
-        elif t == 0x03:
-            v = ('f32', b[i:i + 4]); i += 4
-        else:
-            raise ValueError(f'unsupported binary KV type {t:#x}')
-        items.append([key, v])
-    return items, i
-
-
-def bkv_dump(items):
-    out = bytearray()
-    for k, v in items:
-        kb = k.encode() + b'\0'
-        if isinstance(v, list):
-            out += b'\x00' + kb + bkv_dump(v)
-        elif isinstance(v, str):
-            out += b'\x01' + kb + v.encode() + b'\0'
-        elif v[0] == 'i32':
-            out += b'\x02' + kb + (v[1] & 0xFFFFFFFF).to_bytes(4, 'little')
-        elif v[0] == 'u64':
-            out += b'\x07' + kb + v[1].to_bytes(8, 'little')
-        elif v[0] == 'f32':
-            out += b'\x03' + kb + v[1]
-    return bytes(out + b'\x08')
-
-
+# ---------------------------------------------------------------- shortcuts.vdf, binary KeyValues
 def shortcut_appid(exe, name):
     """The app ID Steam gives a shortcut: a CRC of its Exe field (quotes included) and name, high bit set."""
     return (zlib.crc32(('"' + exe + '"' + name).encode()) & 0xFFFFFFFF) | 0x80000000
 
 
+def i32(n):
+    """`vdf` writes ints as signed 32-bit, and a shortcut's app ID has the high bit set."""
+    return n - (1 << 32) if n >= 1 << 31 else n
+
+
 def shortcut_entry(s, appid):
-    return [
-        ['appid', ('i32', appid)], ['AppName', s['appName']], ['Exe', '"' + s['exe'] + '"'],
-        ['StartDir', '"' + (s.get('startDir') or os.path.dirname(s['exe'])) + '"'],
-        ['icon', s.get('icon') or ''], ['ShortcutPath', ''], ['LaunchOptions', s.get('launchOptions') or ''],
-        ['IsHidden', ('i32', int(bool(s.get('hidden'))))],
-        ['AllowDesktopConfig', ('i32', int(s.get('allowDesktopConfig', True)))],
-        ['AllowOverlay', ('i32', int(s.get('allowOverlay', True)))], ['OpenVR', ('i32', int(bool(s.get('openVR'))))],
-        ['Devkit', ('i32', 0)], ['DevkitGameID', ''], ['DevkitOverrideAppID', ('i32', 0)],
-        ['LastPlayTime', ('i32', 0)], ['FlatpakAppID', ''],
-        ['tags', [[str(n), t] for n, t in enumerate(s.get('tags') or [])]],
-    ]
+    return {
+        'appid': i32(appid), 'AppName': s['appName'], 'Exe': '"' + s['exe'] + '"',
+        'StartDir': '"' + (s.get('startDir') or os.path.dirname(s['exe'])) + '"',
+        'icon': s.get('icon') or '', 'ShortcutPath': '', 'LaunchOptions': s.get('launchOptions') or '',
+        'IsHidden': int(bool(s.get('hidden'))), 'AllowDesktopConfig': int(s.get('allowDesktopConfig', True)),
+        'AllowOverlay': int(s.get('allowOverlay', True)), 'OpenVR': int(bool(s.get('openVR'))),
+        'Devkit': 0, 'DevkitGameID': '', 'DevkitOverrideAppID': 0, 'LastPlayTime': 0, 'FlatpakAppID': '',
+        'tags': {str(n): t for n, t in enumerate(s.get('tags') or [])},
+    }
+
+
+def appid_of(entry):
+    k = find(entry, 'appid')
+    return entry[k] & 0xFFFFFFFF if k is not None and isinstance(entry[k], int) else None
 
 
 def apply_shortcuts(path, wanted, remove=()):
     """Upsert the shortcuts in `wanted` ([(appid, shortcut)]), matched by app ID, and drop the ones in `remove`
     (app IDs this tool created earlier that are no longer configured). Other shortcuts are kept."""
     try:
-        items, _ = bkv_parse(slurp(path, binary=True))
+        before = slurp(path, binary=True)
     except FileNotFoundError:
         if not wanted:
             return False
-        items = []
-    root = next((kv for kv in items if kv[0].lower() == 'shortcuts' and isinstance(kv[1], list)), None)
-    if root is None:
-        root = ['shortcuts', []]
-        items = [root]
-    entries = [v for _, v in root[1] if isinstance(v, list)]
-
-    def appid_of(e):
-        return next((v[1] & 0xFFFFFFFF for k, v in e if k.lower() == 'appid' and isinstance(v, tuple)), None)
-
+        before = None
+    try:
+        items = vdf.binary_loads(before) if before else {}
+    except SyntaxError as e:
+        print(f'steam-apply: not touching {path}, which does not parse: {e}', file=sys.stderr)
+        return False
+    k = find(items, 'shortcuts')
+    if k is None or not isinstance(items[k], dict):
+        k = k or 'shortcuts'
+        items[k] = {}
     remove = set(remove)
-    entries = [e for e in entries if appid_of(e) not in remove]
+    entries = [e for e in items[k].values() if isinstance(e, dict) and appid_of(e) not in remove]
     for appid, s in wanted:
         new = shortcut_entry(s, appid)
         old = next((e for e in entries if appid_of(e) == appid), None)
@@ -313,19 +214,15 @@ def apply_shortcuts(path, wanted, remove=()):
             entries.append(new)
             continue
         # play time is Steam's to keep
-        played = next((v for k, v in old if k.lower() == 'lastplaytime'), None)
+        played = find(old, 'LastPlayTime')
         if played is not None:
-            for kv in new:
-                if kv[0] == 'LastPlayTime':
-                    kv[1] = played
-        old[:] = new
-    root[1] = [[str(n), e] for n, e in enumerate(entries)]
-    data = bkv_dump(items)
-    try:
-        if slurp(path, binary=True) == data:
-            return False
-    except FileNotFoundError:
-        pass
+            new['LastPlayTime'] = old[played]
+        old.clear()
+        old.update(new)
+    items[k] = {str(n): e for n, e in enumerate(entries)}
+    data = vdf.binary_dumps(items)
+    if data == before:
+        return False
     write_atomic(path, data)
     return True
 
@@ -333,17 +230,12 @@ def apply_shortcuts(path, wanted, remove=()):
 # ---------------------------------------------------------------- libraries / state
 def library_paths(root):
     paths = [root]
-    try:
-        items = parse(slurp(os.path.join(root, 'steamapps', 'libraryfolders.vdf')))
-    except FileNotFoundError:
-        return paths
-    for k, v in items:
-        if k.lower() == 'libraryfolders' and isinstance(v, list):
-            for _, f in v:
-                if isinstance(f, list):
-                    for fk, fv in f:
-                        if fk.lower() == 'path' and isinstance(fv, str) and fv not in paths:
-                            paths.append(fv)
+    items = load_text(os.path.join(root, 'steamapps', 'libraryfolders.vdf')) or {}
+    folders = items.get(find(items, 'libraryfolders'))
+    for f in folders.values() if isinstance(folders, dict) else []:
+        path = f.get(find(f, 'path')) if isinstance(f, dict) else None
+        if isinstance(path, str) and path not in paths:
+            paths.append(path)
     return paths
 
 

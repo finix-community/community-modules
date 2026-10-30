@@ -5,6 +5,8 @@ python3.pkgs.buildPythonApplication {
   version = "0.1.0";
   format = "other";
 
+  dependencies = [ python3.pkgs.vdf ];
+
   src = ./.;
 
   installPhase = ''

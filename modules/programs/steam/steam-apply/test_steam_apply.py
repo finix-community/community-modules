@@ -1,5 +1,7 @@
 import os, tempfile, unittest
 
+import vdf
+
 import steam_apply as sa
 
 
@@ -25,9 +27,11 @@ class Env:
     def run(self, apps):
         return sa.apply({'apps': apps}, self.home)
 
+    def text(self, rel):
+        return vdf.loads(self.read(rel))
+
     def shortcuts(self):
-        items, _ = sa.bkv_parse(self.read('userdata/123/config/shortcuts.vdf', binary=True))
-        return [dict(e) for _, e in items[0][1]]
+        return list(vdf.binary_loads(self.read('userdata/123/config/shortcuts.vdf', binary=True))['shortcuts'].values())
 
 
 def shortcut(key, exe, **kw):
@@ -43,17 +47,22 @@ def compat(tool):
 
 
 class Text(unittest.TestCase):
-    def test_roundtrip(self):
-        text = '"a"\n{\n\t"b"\t\t"c \\"q\\""\n\t"d"\n\t{\n\t}\n}\n'
-        self.assertEqual(sa.dump(sa.parse(text)), text)
-
     def test_set_path_keeps_spelling_and_deletes(self):
-        items = sa.parse('"Root" { "Apps" { "570" { "x" "1" } } }')
+        items = {'Root': {'Apps': {'570': {'x': '1'}}}}
         self.assertTrue(sa.set_path(items, ['root', 'apps', '570', 'y'], '2'))
         self.assertFalse(sa.set_path(items, ['root', 'apps', '570', 'y'], '2'))
-        self.assertIn('"Apps"', sa.dump(items))
+        self.assertEqual(items, {'Root': {'Apps': {'570': {'x': '1', 'y': '2'}}}})
         self.assertTrue(sa.set_path(items, ['root', 'apps', '570'], None))
         self.assertFalse(sa.set_path(items, ['root', 'apps', '570'], None))
+        self.assertEqual(items, {'Root': {'Apps': {}}})
+
+    def test_unparseable_file_is_left_alone(self):
+        e = Env()
+        broken = '"UserLocalConfigStore"\n{\n\t"friends"\n'
+        e.write('userdata/123/config/localconfig.vdf', broken)
+        e.run([{'key': 'dota', 'appId': 570, 'shortcut': None, 'artwork': {}, 'settings': [
+            {'file': 'localconfig', 'path': 'apps/<appid>/OverlayAppEnable', 'value': '0'}]}])
+        self.assertEqual(e.read('userdata/123/config/localconfig.vdf'), broken)
 
 
 class SteamApps(unittest.TestCase):
@@ -71,11 +80,12 @@ class SteamApps(unittest.TestCase):
         ghost = {'key': 'ghost', 'appId': 999, 'shortcut': None, 'artwork': {},
                  'settings': [{'file': 'appmanifest', 'path': 'AutoUpdateBehavior', 'value': '1'}]}
         e.run([dota, ghost])
-        local = e.read('userdata/123/config/localconfig.vdf')
-        self.assertIn('"friends"\t\t"keep"', local)
-        self.assertIn('"LaunchOptions"\t\t"-novid %command%"', local)
-        self.assertIn('"cloudenabled"\t\t"0"', e.read('userdata/123/7/remote/sharedconfig.vdf'))
-        self.assertIn('"AutoUpdateBehavior"\t\t"1"', e.read('steamapps/appmanifest_570.acf'))
+        local = e.text('userdata/123/config/localconfig.vdf')['UserLocalConfigStore']
+        self.assertEqual(local['friends'], 'keep')
+        self.assertEqual(local['Software']['Valve']['Steam']['apps']['570']['LaunchOptions'], '-novid %command%')
+        shared = e.text('userdata/123/7/remote/sharedconfig.vdf')['UserRoamingConfigStore']
+        self.assertEqual(shared['Software']['Valve']['Steam']['apps']['570']['cloudenabled'], '0')
+        self.assertEqual(e.text('steamapps/appmanifest_570.acf')['AppState']['AutoUpdateBehavior'], '1')
         self.assertFalse(os.path.exists(e.path('steamapps/appmanifest_999.acf')))
         self.assertIn('"570"', e.read('config/config.vdf'))
         self.assertTrue(os.path.exists(e.path('userdata/123/config/localconfig.vdf' + sa.BAK)))
@@ -90,15 +100,14 @@ class Shortcuts(unittest.TestCase):
 
     def test_roundtrip_and_upsert(self):
         e = Env()
-        existing = sa.bkv_dump([['shortcuts', [['0', [['appid', ('i32', 5)], ['AppName', 'Mine'], ['Exe', '"/bin/x"'],
-                                                    ['LastPlayTime', ('i32', 7)], ['tags', []]]]]]])
-        self.assertEqual(sa.bkv_dump(sa.bkv_parse(existing)[0]), existing)
+        existing = vdf.binary_dumps({'shortcuts': {'0': {
+            'appid': 5, 'AppName': 'Mine', 'Exe': '"/bin/x"', 'LastPlayTime': 7, 'tags': {}}}})
         e.write('userdata/123/config/shortcuts.vdf', existing)
         apps = [shortcut('game', '/opt/game/run', appName='Game', launchOptions='-x', tags=['nix'])]
         e.run(apps)
         en = e.shortcuts()
         self.assertEqual([x['AppName'] for x in en], ['Mine', 'Game'])
-        self.assertEqual(en[1]['appid'][1] & 0xFFFFFFFF, sa.shortcut_appid('/opt/game/run', 'Game'))
+        self.assertEqual(en[1]['appid'] & 0xFFFFFFFF, sa.shortcut_appid('/opt/game/run', 'Game'))
         self.assertEqual(en[1]['StartDir'], '"/opt/game"')
         self.assertEqual(en[1]['LaunchOptions'], '-x')
         self.assertEqual(e.run(apps), [])  # idempotent
@@ -108,16 +117,14 @@ class Shortcuts(unittest.TestCase):
         apps = [shortcut('game', '/opt/game/run')]
         e.run(apps)
         aid = sa.shortcut_appid('/opt/game/run', 'game')
-        items, _ = sa.bkv_parse(e.read('userdata/123/config/shortcuts.vdf', binary=True))
-        for kv in items[0][1][0][1]:
-            if kv[0] == 'LastPlayTime':
-                kv[1] = ('i32', 1234)
-        e.write('userdata/123/config/shortcuts.vdf', sa.bkv_dump(items))
+        items = vdf.binary_loads(e.read('userdata/123/config/shortcuts.vdf', binary=True))
+        items['shortcuts']['0']['LastPlayTime'] = 1234
+        e.write('userdata/123/config/shortcuts.vdf', vdf.binary_dumps(items))
         e.run([shortcut('game', '/opt/game/run', launchOptions='-y')])
         en = e.shortcuts()[0]
-        self.assertEqual(en['LastPlayTime'], ('i32', 1234))
+        self.assertEqual(en['LastPlayTime'], 1234)
         self.assertEqual(en['LaunchOptions'], '-y')
-        self.assertEqual(en['appid'][1] & 0xFFFFFFFF, aid)
+        self.assertEqual(en['appid'] & 0xFFFFFFFF, aid)
 
     def test_path_change_replaces_and_cleans_up(self):
         e = Env()
@@ -136,7 +143,7 @@ class Shortcuts(unittest.TestCase):
         # the store path changes on update: the entry is replaced, not duplicated
         e.run(apps('/nix/store/bbb-retroarch/bin/retroarch'))
         new = sa.shortcut_appid('/nix/store/bbb-retroarch/bin/retroarch', 'RetroArch')
-        self.assertEqual([x['appid'][1] & 0xFFFFFFFF for x in e.shortcuts()], [new])
+        self.assertEqual([x['appid'] & 0xFFFFFFFF for x in e.shortcuts()], [new])
         self.assertFalse(os.path.exists(os.path.join(grid, f'{old}_hero.jpg')))
         self.assertTrue(os.path.exists(os.path.join(grid, f'{new}_hero.jpg')))
         conf = e.read('config/config.vdf')
@@ -173,7 +180,7 @@ class Installer(unittest.TestCase):
         self.assertEqual(en['StartDir'], f'"{d}"')
         self.assertTrue(os.path.isdir(d))
         self.assertEqual(en['LaunchOptions'], f'/nix/store/aaa-steam-install-g {d} %command%')
-        self.assertEqual(en['appid'][1] & 0xFFFFFFFF, sa.shortcut_appid(exe, 'Game'))
+        self.assertEqual(en['appid'] & 0xFFFFFFFF, sa.shortcut_appid(exe, 'Game'))
         self.assertIn(f'"{sa.shortcut_appid(exe, "Game")}"', e.read('config/config.vdf'))
 
     def test_shim_goes_in_front_of_command(self):
